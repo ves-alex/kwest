@@ -13,6 +13,7 @@ import {
   removeSetFromEntry,
 } from '../storage/sessions'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
+import ExerciseThumb from '../components/ui/ExerciseThumb'
 
 function formatStartedAt(iso) {
   const d = new Date(iso)
@@ -118,8 +119,9 @@ export default function Session() {
               key={entryIndex}
               className="rounded-2xl border border-forge-light bg-forge p-4"
             >
-              <header className="flex items-start justify-between gap-3">
-                <div>
+              <header className="flex items-start gap-3">
+                {exo && <ExerciseThumb exerciseId={exo.id} />}
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-cream">
                     {exo?.name ?? entry.exerciseId}
                   </p>

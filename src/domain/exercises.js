@@ -89,3 +89,10 @@ export function exercisesByGroup() {
 export function findExerciseById(id) {
   return EXERCISES.find((e) => e.id === id)
 }
+
+// Convention : les images sont dans public/exercises/<id>/<index>.jpg
+// 0.jpg = position de départ (souvent peu représentative)
+// 1.jpg = position d'effort / fin de mouvement (plus parlant, défaut)
+export function exerciseImage(id, index = 1) {
+  return `/exercises/${id}/${index}.jpg`
+}

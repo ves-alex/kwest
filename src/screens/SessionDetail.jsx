@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ChevronLeft, Trash2 } from 'lucide-react'
 import { findSession, deleteSession } from '../storage/sessions'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
+import ExerciseThumb from '../components/ui/ExerciseThumb'
 
 function formatLong(iso) {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -92,15 +93,18 @@ export default function SessionDetail() {
               key={i}
               className="rounded-2xl border border-forge-light bg-forge p-4"
             >
-              <header>
-                <p className="text-sm font-medium text-cream">
-                  {exo?.name ?? entry.exerciseId}
-                </p>
-                {exo && (
-                  <p className="mt-0.5 text-[10px] uppercase tracking-wider text-ash">
-                    {EQUIPMENT[exo.equipment]}
+              <header className="flex items-start gap-3">
+                {exo && <ExerciseThumb exerciseId={exo.id} />}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-cream">
+                    {exo?.name ?? entry.exerciseId}
                   </p>
-                )}
+                  {exo && (
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wider text-ash">
+                      {EQUIPMENT[exo.equipment]}
+                    </p>
+                  )}
+                </div>
               </header>
               {entry.sets.length === 0 ? (
                 <p className="mt-3 text-xs text-ash">Aucune série loguée.</p>

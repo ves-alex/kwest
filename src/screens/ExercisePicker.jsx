@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Search } from 'lucide-react'
-import {
-  exercisesByGroup,
-  EQUIPMENT,
-} from '../domain/exercises'
+import { exercisesByGroup, EQUIPMENT } from '../domain/exercises'
+import ExerciseThumb from '../components/ui/ExerciseThumb'
 import {
   addEntryToActiveSession,
   loadActiveSession,
@@ -107,12 +105,15 @@ export default function ExercisePicker() {
                       <button
                         type="button"
                         onClick={() => handleSelect(e)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-forge-light active:bg-forge-light"
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-forge-light active:bg-forge-light"
                       >
-                        <span className="text-sm text-cream">{e.name}</span>
-                        <span className="text-[10px] uppercase tracking-wider text-ash">
-                          {EQUIPMENT[e.equipment]}
-                        </span>
+                        <ExerciseThumb exerciseId={e.id} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-cream">{e.name}</p>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-ash">
+                            {EQUIPMENT[e.equipment]}
+                          </p>
+                        </div>
                       </button>
                     </li>
                   ))}
