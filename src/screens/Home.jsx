@@ -115,7 +115,21 @@ export default function Home() {
               {unlocked.size} / {BADGES.length}
             </p>
           </div>
-          <ul className="mt-4 grid grid-cols-5 gap-2">
+          <ul
+            className="mt-4 grid grid-cols-5 gap-2"
+            onTouchStart={(e) => {
+              const t = e.touches[0]
+              const el = document.elementFromPoint(t.clientX, t.clientY)
+              const btn = el?.closest('[data-badge-id]')
+              if (btn) setSelectedBadge(btn.dataset.badgeId)
+            }}
+            onTouchMove={(e) => {
+              const t = e.touches[0]
+              const el = document.elementFromPoint(t.clientX, t.clientY)
+              const btn = el?.closest('[data-badge-id]')
+              if (btn) setSelectedBadge(btn.dataset.badgeId)
+            }}
+          >
             {BADGES.map((b) => {
               const Icon = b.Icon
               const isUnlocked = unlocked.has(b.id)
@@ -124,9 +138,9 @@ export default function Home() {
                 <li key={b.id}>
                   <button
                     type="button"
-                    onClick={() =>
-                      setSelectedBadge(isSelected ? null : b.id)
-                    }
+                    data-badge-id={b.id}
+                    onClick={() => setSelectedBadge(isSelected ? null : b.id)}
+                    onMouseEnter={() => setSelectedBadge(b.id)}
                     aria-label={b.name}
                     aria-pressed={isSelected}
                     className={`flex aspect-square w-full items-center justify-center rounded-lg border transition-all ${
@@ -180,8 +194,8 @@ export default function Home() {
           {!selectedBadge && (
             <p className="mt-3 text-[10px] uppercase tracking-[0.3em] text-ash">
               {unlocked.size === 0
-                ? 'aucune annale encore · tape un sceau pour sa condition'
-                : 'tape un sceau pour son détail'}
+                ? 'aucune annale encore · glisse sur un sceau pour sa condition'
+                : 'glisse sur un sceau pour son détail'}
             </p>
           )}
         </div>
