@@ -7,11 +7,20 @@ import {
   clearActiveSession,
   createSession,
   saveSession,
+  loadSessions,
   removeEntryFromActiveSession,
   addSetToEntry,
   updateSetInEntry,
   removeSetFromEntry,
 } from '../storage/sessions'
+import { loadPlayer, savePlayer, addRunes, addXp } from '../storage/player'
+import {
+  computeSessionRunes,
+  computeSessionXp,
+  computeLevel,
+  RUNE_SYMBOL,
+} from '../domain/economy'
+import { evaluateBadges, findBadgeById } from '../domain/badges'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 
@@ -28,6 +37,7 @@ function formatStartedAt(iso) {
 
 export default function Session() {
   const [active, setActive] = useState(loadActiveSession)
+  const [recap, setRecap] = useState(null)
 
   const handleStart = () => {
     const s = createSession()
@@ -40,16 +50,6 @@ export default function Session() {
       clearActiveSession()
       setActive(null)
     }
-  }
-
-  const handleFinish = () => {
-    if (!confirm('Terminer la séance ? Elle sera enregistrée dans tes chroniques.')) {
-      return
-    }
-    const finished = { ...active, endedAt: new Date().toISOString() }
-    saveSession(finished)
-    clearActiveSession()
-    setActive(null)
   }
 
   const handleRemoveEntry = (index) => {
@@ -68,6 +68,126 @@ export default function Session() {
     setActive(removeSetFromEntry(entryIndex, setIndex))
   }
 
+  const handleFinish = () => {
+    if (
+      !confirm(
+        'Terminer la séance ? Elle sera enregistrée dans tes chroniques.'
+      )
+    ) {
+      return
+    }
+    const finished = { ...active, endedAt: new Date().toISOString() }
+    const runes = computeSessionRunes(finished)
+    const xp = computeSessionXp(finished)
+    const oldPlayer = loadPlayer()
+    const oldLevel = computeLevel(oldPlayer.totalXp)
+    const oldBadges = new Set(oldPlayer.badgesUnlocked ?? [])
+
+    addRunes(runes)
+    addXp(xp)
+    saveSession(finished)
+
+    // Ré-évalue les badges sur l'historique mis à jour
+    const allSessions = loadSessions()
+    const playerAfterGains = loadPlayer()
+    const unlockedNow = evaluateBadges(playerAfterGains, allSessions)
+    const justUnlocked = unlockedNow.filter((id) => !oldBadges.has(id))
+    if (justUnlocked.length > 0) {
+      savePlayer({ ...playerAfterGains, badgesUnlocked: unlockedNow })
+    }
+
+    const newLevel = computeLevel(playerAfterGains.totalXp)
+    clearActiveSession()
+    setActive(null)
+    setRecap({
+      runes,
+      xp,
+      levelUp: newLevel.level > oldLevel.level,
+      newLevel: newLevel.level,
+      newTitle: newLevel.title,
+      newBadges: justUnlocked,
+    })
+  }
+
+  const handleCloseRecap = () => {
+    setRecap(null)
+  }
+
+  // --- Écran récap (priorité absolue) ---
+  if (recap) {
+    return (
+      <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
+        <p className="text-[10px] uppercase tracking-[0.4em] text-ash">
+          séance forgée
+        </p>
+        <div className="mt-6 flex h-16 w-16 items-center justify-center rounded-full border border-ember bg-forge">
+          <Anvil size={28} className="text-ember" />
+        </div>
+
+        <p className="mt-8 font-display text-5xl tracking-wider text-ember">
+          +{recap.runes} {RUNE_SYMBOL}
+        </p>
+        <p className="mt-1 text-xs uppercase tracking-[0.3em] text-cream">
+          runes d'effort
+        </p>
+
+        <p className="mt-6 font-display text-2xl tracking-wider text-cream">
+          +{recap.xp} XP
+        </p>
+
+        {recap.levelUp && (
+          <div className="mt-8 w-full max-w-xs rounded-xl border border-ember bg-forge p-4">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-ash">
+              Nouveau palier
+            </p>
+            <p className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
+              {recap.newTitle}
+            </p>
+            <p className="mt-1 text-xs text-ash">Niveau {recap.newLevel}</p>
+          </div>
+        )}
+
+        {recap.newBadges?.length > 0 && (
+          <div className="mt-6 w-full max-w-xs space-y-2">
+            <p className="text-center text-[10px] uppercase tracking-[0.3em] text-ash">
+              {recap.newBadges.length === 1
+                ? 'Badge débloqué'
+                : `${recap.newBadges.length} badges débloqués`}
+            </p>
+            {recap.newBadges.map((id) => {
+              const b = findBadgeById(id)
+              if (!b) return null
+              const Icon = b.Icon
+              return (
+                <div
+                  key={id}
+                  className="flex items-center gap-3 rounded-xl border border-glow bg-forge p-3 text-left"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-glow bg-charcoal">
+                    <Icon size={18} className="text-glow" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-cream">{b.name}</p>
+                    <p className="text-[10px] text-ash">{b.description}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleCloseRecap}
+          className="mt-10 inline-flex items-center gap-2 rounded-md border border-ember bg-forge px-8 py-3 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
+        >
+          Continuer
+        </button>
+      </div>
+    )
+  }
+
+  // --- Écran initial (pas de séance) ---
   if (!active) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
@@ -92,6 +212,7 @@ export default function Session() {
     )
   }
 
+  // --- Écran séance en cours ---
   return (
     <div className="px-6 py-10">
       <header className="mx-auto max-w-md text-center">
@@ -144,10 +265,7 @@ export default function Session() {
               {entry.sets.length > 0 && (
                 <ul className="mt-4 space-y-2">
                   {entry.sets.map((set, setIndex) => (
-                    <li
-                      key={setIndex}
-                      className="flex items-center gap-2"
-                    >
+                    <li key={setIndex} className="flex items-center gap-2">
                       <span className="w-5 text-center font-mono text-xs text-ash">
                         {setIndex + 1}
                       </span>

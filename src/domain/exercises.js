@@ -96,3 +96,45 @@ export function findExerciseById(id) {
 export function exerciseImage(id, index = 1) {
   return `/exercises/${id}/${index}.jpg`
 }
+
+// --- Économie : difficulté par exo (Phase 3) ---
+// Facteur multiplicatif sur la formule poids × reps. Défaut = 1.0
+const DIFFICULTY_OVERRIDES = {
+  // Composés lourds (barre, polyarticulaires) → 1.4
+  'developpe-couche-barre': 1.4,
+  'squat-barre': 1.4,
+  'souleve-de-terre': 1.4,
+  'souleve-de-terre-roumain': 1.4,
+  'developpe-militaire': 1.4,
+  // Composés (haltères, polyarticulaires) → 1.2
+  'developpe-couche-halteres': 1.2,
+  'developpe-incline-halteres': 1.2,
+  'rowing-barre': 1.2,
+  'rowing-halteres': 1.2,
+  'developpe-epaules-halteres': 1.2,
+  'fentes-halteres': 1.2,
+  'hip-thrust': 1.2,
+  'tractions': 1.2,
+  'dips': 1.2,
+}
+
+// Pour les exos au poids du corps : multiplicateur par rep (quand poids = 0)
+const BODYWEIGHT_FACTORS = {
+  'pompes': 1.5,
+  'tractions': 4,
+  'dips': 3,
+  'crunch': 0.5,
+  'planche': 1, // 1 rune par seconde tenue (reps = secondes)
+  'leg-raises': 1.5,
+  'russian-twist': 0.8,
+  'extensions-mollets-debout': 0.5,
+  'extensions-mollets-assis': 0.5,
+}
+
+export function getDifficulty(id) {
+  return DIFFICULTY_OVERRIDES[id] ?? 1.0
+}
+
+export function getBodyweightFactor(id) {
+  return BODYWEIGHT_FACTORS[id] ?? 1
+}
