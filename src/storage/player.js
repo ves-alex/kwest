@@ -1,6 +1,7 @@
 const PLAYER_KEY = 'kwest:player'
 
 const DEFAULT_PLAYER = {
+  gender: null,
   totalRunes: 0,
   runesSpent: 0,
   totalXp: 0,
@@ -104,6 +105,18 @@ export function unequipCosmetic(type) {
   const next = { ...p.cosmeticsEquipped }
   delete next[type]
   p.cosmeticsEquipped = next
+  savePlayer(p)
+  return p
+}
+
+// Appelé une seule fois à l'onboarding — définit le genre et offre la skin de départ
+export function initPlayerGender(gender, skinId) {
+  const p = loadPlayer()
+  p.gender = gender
+  if (!p.cosmeticsOwned.includes(skinId)) {
+    p.cosmeticsOwned = [...p.cosmeticsOwned, skinId]
+  }
+  p.cosmeticsEquipped = { ...p.cosmeticsEquipped, skin: skinId }
   savePlayer(p)
   return p
 }

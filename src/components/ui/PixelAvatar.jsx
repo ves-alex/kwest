@@ -39,10 +39,10 @@ function getPalette(level) {
   return PALETTES[2]
 }
 
-export default function PixelAvatar({ level = 0, auraId, pixelSize = 6 }) {
+export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }) {
   const palette = getPalette(level)
-  const svgDim = 16 * pixelSize       // 96px
-  const containerDim = svgDim + 32    // 128px (espace pour les anneaux)
+  const svgDim = 16 * pixelSize
+  const containerDim = svgDim + 32
   const glow = auraId ? (AURA_SHADOWS[auraId] ?? undefined) : undefined
 
   return (
@@ -69,32 +69,45 @@ export default function PixelAvatar({ level = 0, auraId, pixelSize = 6 }) {
         aria-hidden
       />
 
-      {/* Pixel art SVG */}
-      <svg
-        width={svgDim}
-        height={svgDim}
-        style={{ imageRendering: 'pixelated', position: 'relative' }}
-        aria-label={`Avatar niveau ${level}`}
-        role="img"
-      >
-        {CHAR_DESIGN.map((row, r) =>
-          [...row].map((code, c) => {
-            if (code === '_') return null
-            const fill = palette[code]
-            if (!fill) return null
-            return (
-              <rect
-                key={`${r}-${c}`}
-                x={c * pixelSize}
-                y={r * pixelSize}
-                width={pixelSize}
-                height={pixelSize}
-                fill={fill}
-              />
-            )
-          })
-        )}
-      </svg>
+      {skinId ? (
+        <img
+          src={`/avatars/${skinId}.png`}
+          alt={`Avatar niveau ${level}`}
+          style={{
+            width: svgDim,
+            height: svgDim,
+            imageRendering: 'pixelated',
+            objectFit: 'contain',
+            position: 'relative',
+          }}
+        />
+      ) : (
+        <svg
+          width={svgDim}
+          height={svgDim}
+          style={{ imageRendering: 'pixelated', position: 'relative' }}
+          aria-label={`Avatar niveau ${level}`}
+          role="img"
+        >
+          {CHAR_DESIGN.map((row, r) =>
+            [...row].map((code, c) => {
+              if (code === '_') return null
+              const fill = palette[code]
+              if (!fill) return null
+              return (
+                <rect
+                  key={`${r}-${c}`}
+                  x={c * pixelSize}
+                  y={r * pixelSize}
+                  width={pixelSize}
+                  height={pixelSize}
+                  fill={fill}
+                />
+              )
+            })
+          )}
+        </svg>
+      )}
     </div>
   )
 }

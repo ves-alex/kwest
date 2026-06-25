@@ -11,10 +11,11 @@ export const COSMETIC_TYPES = {
   aura: 'Aura',
   titre: 'Titre',
   fond: 'Fond',
+  skin: 'Apparence',
 }
 
-// 6 cosmétiques de départ (Phase 3)
 export const COSMETICS = [
+  // Auras
   {
     id: 'aura-ember',
     name: 'Aura ember',
@@ -24,20 +25,21 @@ export const COSMETICS = [
     description: 'Une lueur ambrée discrète autour de ton avatar.',
   },
   {
-    id: 'titre-sans-voix',
-    name: 'Le Sans-Voix',
-    type: 'titre',
-    rarity: 'brut',
-    price: 80,
-    description: 'Pour ceux qui agissent sans expliquer.',
-  },
-  {
     id: 'aura-glow',
     name: 'Aura glow',
     type: 'aura',
     rarity: 'forge',
     price: 200,
     description: 'Un halo doré chaud, plus profond.',
+  },
+  // Titres
+  {
+    id: 'titre-sans-voix',
+    name: 'Le Sans-Voix',
+    type: 'titre',
+    rarity: 'brut',
+    price: 80,
+    description: 'Pour ceux qui agissent sans expliquer.',
   },
   {
     id: 'titre-disciple-forge',
@@ -48,21 +50,70 @@ export const COSMETICS = [
     description: "Pour celui qui revient sans qu'on lui demande.",
   },
   {
-    id: 'fond-forge-silencieuse',
-    name: 'Forge silencieuse',
-    type: 'fond',
-    rarity: 'eveille',
-    price: 600,
-    description:
-      'Un atelier sombre, une enclume froide. Ton Refuge change de visage.',
-  },
-  {
     id: 'titre-ombre-integree',
     name: "L'Ombre Intégrée",
     type: 'titre',
     rarity: 'ascendant',
     price: 1200,
     description: "Pour celui qui a fait amitié avec sa propre nuit.",
+  },
+  // Fonds
+  {
+    id: 'fond-forge-silencieuse',
+    name: 'Forge silencieuse',
+    type: 'fond',
+    rarity: 'eveille',
+    price: 600,
+    description: 'Un atelier sombre, une enclume froide. Ton Refuge change de visage.',
+  },
+  // Skins — toutes à 200◈, 1 offerte à l'onboarding
+  {
+    id: 'skin-m1',
+    name: "L'Initié",
+    type: 'skin',
+    rarity: 'eveille',
+    price: 200,
+    description: "Cloak épais, regard discret. L'aventure commence ici.",
+  },
+  {
+    id: 'skin-m2',
+    name: 'Le Forgeron',
+    type: 'skin',
+    rarity: 'eveille',
+    price: 200,
+    description: "Cheveux noués, bras à l'air. La forge est sa maison.",
+  },
+  {
+    id: 'skin-m3',
+    name: 'Le Maître de Forge',
+    type: 'skin',
+    rarity: 'eveille',
+    price: 200,
+    description: "Carrure imposante, torse nu. Il n'a plus rien à prouver.",
+  },
+  {
+    id: 'skin-f1',
+    name: "L'Initiée",
+    type: 'skin',
+    rarity: 'eveille',
+    price: 200,
+    description: 'Cape ample, nattes serrées. Le premier pas est toujours le plus courageux.',
+  },
+  {
+    id: 'skin-f2',
+    name: 'La Forgeronne',
+    type: 'skin',
+    rarity: 'eveille',
+    price: 200,
+    description: 'Chignon haut, bras sculptés. Elle forge en silence.',
+  },
+  {
+    id: 'skin-f3',
+    name: 'La Maîtresse de Forge',
+    type: 'skin',
+    rarity: 'eveille',
+    price: 200,
+    description: "Armure d'épaule, regard de feu. Elle dirige la forge.",
   },
 ]
 

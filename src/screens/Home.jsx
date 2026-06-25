@@ -34,6 +34,8 @@ export default function Home() {
         <PixelAvatar
           level={lvl.level}
           auraId={player.cosmeticsEquipped?.aura}
+          skinId={player.cosmeticsEquipped?.skin}
+          pixelSize={8}
         />
       </div>
 

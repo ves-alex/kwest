@@ -114,6 +114,16 @@ export default function Shop() {
                 </p>
               </header>
 
+              {c.type === 'skin' && (
+                <div className="mt-3 flex justify-center">
+                  <img
+                    src={`/avatars/${c.id}.png`}
+                    alt={c.name}
+                    className="h-28 w-28 rounded-xl border border-forge-light"
+                    style={{ imageRendering: 'pixelated', background: '#191714' }}
+                  />
+                </div>
+              )}
               <p className="mt-3 text-xs leading-relaxed text-ash">
                 {c.description}
               </p>
