@@ -97,12 +97,12 @@ export default function Onboarding({ onComplete }) {
                       : 'border-forge-light hover:border-ember/50'
                   }`}
                 >
-                  <div className="bg-forge">
+                  <div className="bg-cream">
                     <img
                       src={`/avatars/${id}.png`}
                       alt={label}
                       className="h-auto w-full"
-                      style={{ imageRendering: 'pixelated', filter: 'url(#kw-remove-white)' }}
+                      style={{ imageRendering: 'pixelated', mixBlendMode: 'multiply' }}
                     />
                   </div>
                   <div className="border-t border-forge-light bg-charcoal px-1 py-1.5 text-center text-[8px] uppercase leading-tight tracking-[0.1em] text-ash">

@@ -62,10 +62,15 @@ export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }
         aria-hidden
       />
 
-      {/* Cercle de fond — contient l'image PNG (clip circle + filtre fond blanc) */}
+      {/* Cercle de fond — crème pour skin (fond PNG visible = blanc → crème via multiply),
+          forge pour SVG CSS */}
       <div
-        className="absolute overflow-hidden rounded-full bg-forge border border-ember/30"
-        style={{ inset: 16, boxShadow: glow }}
+        className="absolute overflow-hidden rounded-full border border-ember/30"
+        style={{
+          inset: 16,
+          boxShadow: glow,
+          background: skinId ? '#F5F0E8' : '#1A1614',
+        }}
         aria-hidden
       >
         {skinId && (
@@ -73,15 +78,12 @@ export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }
             src={`/avatars/${skinId}.png`}
             alt=""
             className="h-full w-full object-contain"
-            style={{ imageRendering: 'pixelated', filter: 'url(#kw-remove-white)' }}
+            style={{ imageRendering: 'pixelated', mixBlendMode: 'multiply' }}
           />
         )}
       </div>
 
-      {/* Label accessible pour la skin */}
-      {skinId && (
-        <span className="sr-only">{`Avatar niveau ${level}`}</span>
-      )}
+      {skinId && <span className="sr-only">{`Avatar niveau ${level}`}</span>}
 
       {/* Avatar pixel art SVG (fallback si pas de skin) */}
       {!skinId && (

@@ -116,12 +116,14 @@ export default function Shop() {
 
               {c.type === 'skin' && (
                 <div className="mt-3 flex justify-center">
-                  <img
-                    src={`/avatars/${c.id}.png`}
-                    alt={c.name}
-                    className="h-28 w-28 rounded-xl border border-forge-light"
-                    style={{ imageRendering: 'pixelated', filter: 'url(#kw-remove-white)' }}
-                  />
+                  <div className="overflow-hidden rounded-xl border border-forge-light bg-cream">
+                    <img
+                      src={`/avatars/${c.id}.png`}
+                      alt={c.name}
+                      className="h-28 w-28 object-contain"
+                      style={{ imageRendering: 'pixelated', mixBlendMode: 'multiply' }}
+                    />
+                  </div>
                 </div>
               )}
               <p className="mt-3 text-xs leading-relaxed text-ash">
