@@ -116,12 +116,12 @@ export function removeEntryFromActiveSession(index) {
   return active
 }
 
-export function addSetToEntry(entryIndex) {
+export function addSetToEntry(entryIndex, defaults = {}) {
   const active = loadActiveSession()
   if (!active) return null
   const entry = active.entries[entryIndex]
   if (!entry) return active
-  entry.sets.push({ reps: '', weight: '' })
+  entry.sets.push({ reps: defaults.reps ?? '', weight: defaults.weight ?? '', validated: false })
   saveActiveSession(active)
   return active
 }
@@ -144,4 +144,40 @@ export function removeSetFromEntry(entryIndex, setIndex) {
   entry.sets.splice(setIndex, 1)
   saveActiveSession(active)
   return active
+}
+
+// Retourne le dernier set enregistré pour un exercice donné dans l'historique
+export function getLastPerformance(exerciseId, sessions) {
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(b.startedAt) - new Date(a.startedAt)
+  )
+  for (const s of sorted) {
+    const entry = s.entries.find((e) => e.exerciseId === exerciseId)
+    if (entry?.sets?.length > 0) {
+      const last = entry.sets[entry.sets.length - 1]
+      return { reps: last.reps, weight: last.weight }
+    }
+  }
+  return null
+}
+
+// Exercices récents (max 5) pour le sélecteur
+const RECENTS_KEY = 'kwest:recent-exercises'
+const MAX_RECENTS = 5
+
+export function getRecentExercises() {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export function trackRecentExercise(exerciseId) {
+  const recents = getRecentExercises().filter((id) => id !== exerciseId)
+  recents.unshift(exerciseId)
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)))
+  } catch {}
 }

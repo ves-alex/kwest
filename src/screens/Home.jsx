@@ -6,15 +6,7 @@ import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
 import { loadActiveSession } from '../storage/sessions'
 import { findCosmeticById } from '../domain/cosmetics'
 import { BADGES, findBadgeById } from '../domain/badges'
-
-// Glow CSS appliqué à l'avatar selon l'aura équipée
-// Sans aura : pas de halo (juste les cercles concentriques)
-const AURA_STYLES = {
-  'aura-ember':
-    'shadow-[0_0_60px_0_rgba(124,45,18,0.95),0_0_140px_-20px_rgba(124,45,18,0.6)]',
-  'aura-glow':
-    'shadow-[0_0_70px_0_rgba(146,64,14,1),0_0_160px_-10px_rgba(251,191,36,0.5)]',
-}
+import PixelAvatar from '../components/ui/PixelAvatar'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -25,11 +17,7 @@ export default function Home() {
   const lvl = computeLevel(player.totalXp)
   const unlocked = new Set(player.badgesUnlocked ?? [])
 
-  const equippedAura = findCosmeticById(player.cosmeticsEquipped?.aura)
   const equippedTitle = findCosmeticById(player.cosmeticsEquipped?.titre)
-  const equippedBg = findCosmeticById(player.cosmeticsEquipped?.fond)
-
-  const auraGlow = equippedAura ? AURA_STYLES[equippedAura.id] ?? '' : ''
 
   return (
     <div className="px-6 py-10">
@@ -42,15 +30,11 @@ export default function Home() {
         </h1>
       </header>
 
-      {/* Avatar placeholder */}
       <div className="mx-auto mt-10 flex justify-center">
-        <div
-          className={`relative flex h-32 w-32 items-center justify-center rounded-full border border-ember bg-forge transition-shadow ${auraGlow}`}
-        >
-          <Flame size={52} className="text-ember" />
-          <div className="absolute -inset-2 rounded-full border border-forge-light/40" />
-          <div className="absolute -inset-4 rounded-full border border-forge-light/20" />
-        </div>
+        <PixelAvatar
+          level={lvl.level}
+          auraId={player.cosmeticsEquipped?.aura}
+        />
       </div>
 
       <p className="mt-4 text-center font-display text-lg uppercase tracking-[0.25em] text-cream">

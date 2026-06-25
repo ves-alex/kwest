@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ShoppingBag } from 'lucide-react'
+import ConfirmModal from '../components/ui/ConfirmModal'
 import { COSMETICS, RARITIES, COSMETIC_TYPES } from '../domain/cosmetics'
 import {
   loadPlayer,
@@ -39,13 +40,18 @@ const RARITY_STYLES = {
 
 export default function Shop() {
   const [player, setPlayer] = useState(loadPlayer)
+  const [pendingBuy, setPendingBuy] = useState(null)
   const balance = getBalance(player)
 
   const handleBuy = (c) => {
-    if (!confirm(`Acquérir « ${c.name} » pour ${c.price} ◈ ?`)) return
-    const next = buyCosmetic(c.id, c.price, c.type)
+    setPendingBuy(c)
+  }
+
+  const confirmBuy = () => {
+    if (!pendingBuy) return
+    const next = buyCosmetic(pendingBuy.id, pendingBuy.price, pendingBuy.type)
     if (next) setPlayer(next)
-    else alert('Achat impossible.')
+    setPendingBuy(null)
   }
 
   const handleEquip = (c) => {
@@ -154,6 +160,15 @@ export default function Shop() {
         })}
       </section>
 
+      <ConfirmModal
+        isOpen={!!pendingBuy}
+        title={`Acquérir « ${pendingBuy?.name} » ?`}
+        message={`${pendingBuy?.price} ${RUNE_SYMBOL} seront dépensées de ton solde.`}
+        confirmLabel={`Acquérir · ${pendingBuy?.price} ${RUNE_SYMBOL}`}
+        cancelLabel="Annuler"
+        onConfirm={confirmBuy}
+        onCancel={() => setPendingBuy(null)}
+      />
     </div>
   )
 }

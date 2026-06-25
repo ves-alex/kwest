@@ -70,5 +70,13 @@ export function computeLevel(xp) {
   }
 }
 
-export const RUNE_SYMBOL = '◈'
-export const RUNE_NAME = 'Runes d’Effort'
+// Runes et XP pour une séance sans exercices (timer only) — 3 runes/min, 2 xp/min
+export function computeTimerRunes(minutes) {
+  return Math.max(1, Math.floor(minutes * 3))
+}
+export function computeTimerXp(minutes) {
+  return Math.max(1, Math.floor(minutes * 2))
+}
+
+export const RUNE_SYMBOL = "◈"
+export const RUNE_NAME = "Runes d’Effort"

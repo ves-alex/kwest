@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { loadSessions, deleteSession } from '../storage/sessions'
 import { findExerciseById } from '../domain/exercises'
 import SwipeToDelete from '../components/ui/SwipeToDelete'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 function isSameDay(a, b) {
   return (
@@ -54,12 +55,18 @@ export default function Stats() {
       (a, b) => new Date(b.startedAt) - new Date(a.startedAt)
     )
   )
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
 
   const handleDelete = (id) => {
-    if (!confirm('Supprimer cette séance ?')) return false
-    deleteSession(id)
-    setSessions((prev) => prev.filter((s) => s.id !== id))
-    return true
+    setPendingDeleteId(id)
+    return false // snap back, le modal gère la confirmation
+  }
+
+  const confirmDelete = () => {
+    if (!pendingDeleteId) return
+    deleteSession(pendingDeleteId)
+    setSessions((prev) => prev.filter((s) => s.id !== pendingDeleteId))
+    setPendingDeleteId(null)
   }
 
   return (
@@ -143,6 +150,16 @@ export default function Stats() {
           </>
         )}
       </section>
+      <ConfirmModal
+        isOpen={!!pendingDeleteId}
+        title="Supprimer cette séance ?"
+        message="Cette action est irréversible. La séance sera retirée de tes chroniques."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   )
 }

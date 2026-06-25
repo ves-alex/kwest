@@ -6,7 +6,10 @@ import ExerciseThumb from '../components/ui/ExerciseThumb'
 import {
   addEntryToActiveSession,
   loadActiveSession,
+  getRecentExercises,
+  trackRecentExercise,
 } from '../storage/sessions'
+import { findExerciseById } from '../domain/exercises'
 
 function normalize(s) {
   return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -15,6 +18,11 @@ function normalize(s) {
 export default function ExercisePicker() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const [recents] = useState(() =>
+    getRecentExercises()
+      .map((id) => findExerciseById(id))
+      .filter(Boolean)
+  )
 
   useEffect(() => {
     if (!loadActiveSession()) {
@@ -35,6 +43,7 @@ export default function ExercisePicker() {
   }, [query])
 
   const handleSelect = (exercise) => {
+    trackRecentExercise(exercise.id)
     addEntryToActiveSession(exercise.id)
     navigate('/session')
   }
@@ -89,6 +98,33 @@ export default function ExercisePicker() {
           </p>
         ) : (
           <div className="space-y-6">
+            {/* Section Récents — visible uniquement quand pas de recherche */}
+            {recents.length > 0 && !query.trim() && (
+              <section>
+                <h2 className="px-1 font-display text-[10px] uppercase tracking-[0.4em] text-ash">
+                  Récents
+                </h2>
+                <ul className="mt-2 overflow-hidden rounded-2xl border border-ember/40 bg-forge">
+                  {recents.map((e, i) => (
+                    <li key={e.id} className={i > 0 ? 'border-t border-forge-light/60' : undefined}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelect(e)}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-forge-light active:bg-forge-light"
+                      >
+                        <ExerciseThumb exerciseId={e.id} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-cream">{e.name}</p>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-ash">
+                            {EQUIPMENT[e.equipment]}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {groups.map((g) => (
               <section key={g.key}>
                 <h2 className="px-1 font-display text-[10px] uppercase tracking-[0.4em] text-ash">
