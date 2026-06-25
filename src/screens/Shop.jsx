@@ -120,7 +120,7 @@ export default function Shop() {
                     src={`/avatars/${c.id}.png`}
                     alt={c.name}
                     className="h-28 w-28 rounded-xl border border-forge-light"
-                    style={{ imageRendering: 'pixelated', background: '#191714' }}
+                    style={{ imageRendering: 'pixelated', filter: 'url(#kw-remove-white)' }}
                   />
                 </div>
               )}

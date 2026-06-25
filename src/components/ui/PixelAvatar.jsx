@@ -62,26 +62,29 @@ export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }
         aria-hidden
       />
 
-      {/* Fond circulaire avec halo aura */}
+      {/* Cercle de fond — contient l'image PNG (clip circle + filtre fond blanc) */}
       <div
-        className="absolute rounded-full bg-forge border border-ember/30"
+        className="absolute overflow-hidden rounded-full bg-forge border border-ember/30"
         style={{ inset: 16, boxShadow: glow }}
         aria-hidden
-      />
+      >
+        {skinId && (
+          <img
+            src={`/avatars/${skinId}.png`}
+            alt=""
+            className="h-full w-full object-contain"
+            style={{ imageRendering: 'pixelated', filter: 'url(#kw-remove-white)' }}
+          />
+        )}
+      </div>
 
-      {skinId ? (
-        <img
-          src={`/avatars/${skinId}.png`}
-          alt={`Avatar niveau ${level}`}
-          style={{
-            width: svgDim,
-            height: svgDim,
-            imageRendering: 'pixelated',
-            objectFit: 'contain',
-            position: 'relative',
-          }}
-        />
-      ) : (
+      {/* Label accessible pour la skin */}
+      {skinId && (
+        <span className="sr-only">{`Avatar niveau ${level}`}</span>
+      )}
+
+      {/* Avatar pixel art SVG (fallback si pas de skin) */}
+      {!skinId && (
         <svg
           width={svgDim}
           height={svgDim}
