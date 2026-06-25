@@ -1,23 +1,40 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Flame, Anvil } from 'lucide-react'
-import { loadPlayer, getBalance } from '../storage/player'
+import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
-import { loadActiveSession } from '../storage/sessions'
-import { findCosmeticById } from '../domain/cosmetics'
+import {
+  findCosmeticById,
+  COSMETICS,
+  COSMETIC_TYPES,
+  FOND_AVATAR_GRADIENTS,
+} from '../domain/cosmetics'
 import { BADGES, findBadgeById } from '../domain/badges'
 import PixelAvatar from '../components/ui/PixelAvatar'
 
+const DRESSING_TYPES = ['skin', 'fond-avatar', 'aura', 'titre', 'fond']
+
 export default function Home() {
-  const navigate = useNavigate()
-  const [player] = useState(loadPlayer)
-  const [hasActive] = useState(() => !!loadActiveSession())
+  const [player, setPlayer] = useState(loadPlayer)
   const [selectedBadge, setSelectedBadge] = useState(null)
   const balance = getBalance(player)
   const lvl = computeLevel(player.totalXp)
   const unlocked = new Set(player.badgesUnlocked ?? [])
-
   const equippedTitle = findCosmeticById(player.cosmeticsEquipped?.titre)
+
+  function handleTryOn(type, id) {
+    if (player.cosmeticsEquipped?.[type] === id) {
+      setPlayer(unequipCosmetic(type))
+    } else {
+      setPlayer(equipCosmetic(type, id))
+    }
+  }
+
+  const ownedByType = Object.fromEntries(
+    DRESSING_TYPES.map((type) => [
+      type,
+      COSMETICS.filter((c) => c.type === type && player.cosmeticsOwned.includes(c.id)),
+    ])
+  )
+  const hasDressing = DRESSING_TYPES.some((t) => ownedByType[t].length > 0)
 
   return (
     <div className="px-6 py-10">
@@ -49,6 +66,7 @@ export default function Home() {
       )}
 
       <section className="mx-auto mt-10 max-w-md space-y-4">
+        {/* Niveau */}
         <div className="rounded-2xl border border-forge-light bg-forge p-5">
           <div className="flex items-baseline justify-between">
             <p className="text-[10px] uppercase tracking-[0.3em] text-ash">
@@ -80,10 +98,9 @@ export default function Home() {
           )}
         </div>
 
+        {/* Solde */}
         <div className="rounded-2xl border border-forge-light bg-forge p-5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-ash">
-            Solde
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Solde</p>
           <p className="mt-2 font-display text-4xl tracking-wider text-ember">
             {RUNE_SYMBOL} {balance}
           </p>
@@ -92,25 +109,110 @@ export default function Home() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/session')}
-          className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-md border border-ember bg-forge px-6 py-3.5 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
-        >
-          {hasActive ? (
-            <Anvil size={18} className="text-ember" />
-          ) : (
-            <Flame size={18} className="text-ember" />
+        {/* Dressing */}
+        <div className="rounded-2xl border border-forge-light bg-forge p-5">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Dressing</p>
+
+          {!hasDressing && (
+            <p className="mt-3 text-[10px] uppercase tracking-[0.3em] text-ash/50">
+              aucun cosmétique possédé · visite l'atelier
+            </p>
           )}
-          {hasActive ? 'Reprendre la séance' : 'Démarrer une séance'}
-        </button>
+
+          {DRESSING_TYPES.map((type) => {
+            const owned = ownedByType[type]
+            if (owned.length === 0) return null
+            const equippedId = player.cosmeticsEquipped?.[type]
+
+            return (
+              <div key={type} className="mt-5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] uppercase tracking-[0.25em] text-ash/50">
+                    {COSMETIC_TYPES[type]}
+                  </p>
+                  {equippedId && (
+                    <button
+                      type="button"
+                      onClick={() => setPlayer(unequipCosmetic(type))}
+                      className="text-[9px] uppercase tracking-[0.2em] text-ash/40 transition-colors hover:text-ash"
+                    >
+                      retirer
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                  {owned.map((c) => {
+                    const isEquipped = equippedId === c.id
+                    const ringClass = isEquipped
+                      ? 'ring-2 ring-ember ring-offset-2 ring-offset-forge'
+                      : ''
+
+                    if (type === 'skin') {
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleTryOn(type, c.id)}
+                          aria-label={c.name}
+                          aria-pressed={isEquipped}
+                          className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-full border border-ember/30 transition-all ${ringClass}`}
+                          style={{
+                            background:
+                              FOND_AVATAR_GRADIENTS[player.cosmeticsEquipped?.['fond-avatar']] ??
+                              FOND_AVATAR_GRADIENTS.default,
+                          }}
+                        >
+                          <img
+                            src={`/avatars/${c.id}.png`}
+                            alt={c.name}
+                            className="absolute inset-0 h-full w-full object-contain"
+                            style={{ imageRendering: 'pixelated' }}
+                          />
+                        </button>
+                      )
+                    }
+
+                    if (type === 'fond-avatar') {
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleTryOn(type, c.id)}
+                          aria-label={c.name}
+                          aria-pressed={isEquipped}
+                          className={`h-10 w-10 flex-shrink-0 rounded-full border border-forge-light/60 transition-all ${ringClass}`}
+                          style={{ background: FOND_AVATAR_GRADIENTS[c.id] }}
+                        />
+                      )
+                    }
+
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleTryOn(type, c.id)}
+                        aria-pressed={isEquipped}
+                        className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] transition-all ${
+                          isEquipped
+                            ? 'border-ember bg-ember/15 text-cream'
+                            : 'border-forge-light bg-transparent text-ash hover:border-ash/60'
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
         {/* Annales — badges narratifs */}
-        <div className="mt-6 rounded-2xl border border-forge-light bg-forge p-5">
+        <div className="rounded-2xl border border-forge-light bg-forge p-5">
           <div className="flex items-baseline justify-between">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-ash">
-              Annales
-            </p>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Annales</p>
             <p className="font-mono text-[10px] text-ash">
               {unlocked.size} / {BADGES.length}
             </p>
@@ -163,7 +265,6 @@ export default function Home() {
             })}
           </ul>
 
-          {/* Détail du badge sélectionné */}
           {selectedBadge &&
             (() => {
               const b = findBadgeById(selectedBadge)
