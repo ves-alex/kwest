@@ -5,14 +5,20 @@ const AURA_SHADOWS = {
   'aura-glow':  '0 0 44px 14px rgba(146,64,14,0.95), 0 0 90px 24px rgba(251,191,36,0.3)',
 }
 
+/**
+ * Couches rendues (de bas en haut) :
+ *   1. Gradient fond-avatar (ou défaut braise)
+ *   2. Skin PNG (fond transparent après découpe)
+ *   3. [futur] Cosmétiques superposés : chapeau, arme, accessoire…
+ *
+ * Chaque couche est un <img> positionné en absolute h-full w-full object-contain.
+ * Pour ajouter un type (ex: "chapeau"), passer `hatId` et ajouter un bloc identique.
+ */
 export default function PixelAvatar({ auraId, skinId, fondId, pixelSize = 6 }) {
   const svgDim = 16 * pixelSize
   const containerDim = svgDim + 32
   const glow = auraId ? (AURA_SHADOWS[auraId] ?? undefined) : undefined
-
-  const circleBackground = skinId
-    ? (FOND_AVATAR_GRADIENTS[fondId] ?? FOND_AVATAR_GRADIENTS.default)
-    : '#1A1614'
+  const background = FOND_AVATAR_GRADIENTS[fondId] ?? FOND_AVATAR_GRADIENTS.default
 
   return (
     <div
@@ -31,20 +37,24 @@ export default function PixelAvatar({ auraId, skinId, fondId, pixelSize = 6 }) {
         aria-hidden
       />
 
-      {/* Cercle de fond avec gradient */}
+      {/* Cercle — gradient de fond */}
       <div
         className="absolute overflow-hidden rounded-full border border-ember/30"
-        style={{ inset: 16, boxShadow: glow, background: circleBackground }}
+        style={{ inset: 16, boxShadow: glow, background }}
         aria-hidden
       >
+        {/* Couche 1 : skin */}
         {skinId && (
           <img
             src={`/avatars/${skinId}.png`}
             alt="Avatar"
-            className="h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain"
             style={{ imageRendering: 'pixelated' }}
           />
         )}
+        {/* Couche 2+ : futurs cosmétiques (chapeau, arme, etc.)
+            Exemple : hatId && <img src={`/avatars/hats/${hatId}.png`} ... />
+        */}
       </div>
     </div>
   )

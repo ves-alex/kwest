@@ -116,11 +116,14 @@ export default function Shop() {
 
               {c.type === 'skin' && (
                 <div className="mt-3 flex justify-center">
-                  <div className="overflow-hidden rounded-xl border border-forge-light bg-cream">
+                  <div
+                    className="relative h-28 w-28 overflow-hidden rounded-full border border-ember/30"
+                    style={{ background: FOND_AVATAR_GRADIENTS[player.cosmeticsEquipped?.['fond-avatar']] ?? FOND_AVATAR_GRADIENTS.default }}
+                  >
                     <img
                       src={`/avatars/${c.id}.png`}
                       alt={c.name}
-                      className="h-28 w-28 object-contain"
+                      className="absolute inset-0 h-full w-full object-contain"
                       style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
