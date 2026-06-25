@@ -12,6 +12,25 @@ export const COSMETIC_TYPES = {
   titre: 'Titre',
   fond: 'Fond',
   skin: 'Apparence',
+  'fond-avatar': "Fond d'avatar",
+}
+
+// Gradients des fonds d'avatar (cercle derrière le personnage)
+// Centre clair → fond du PNG invisible · bords sombres → fondu dans l'app
+export const FOND_AVATAR_GRADIENTS = {
+  // Fond de départ offert — braise (forge chaleureuse)
+  default:
+    'radial-gradient(circle, #F5F0E8 30%, #7C2D12 65%, #0A0908 100%)',
+  'fond-avatar-abime':
+    'radial-gradient(circle, #EAECF0 25%, #1A1F2E 60%, #0A0908 100%)',
+  'fond-avatar-cendres':
+    'radial-gradient(circle, #E8E4DC 30%, #3A3630 65%, #0A0908 100%)',
+  'fond-avatar-nuit-forge':
+    'radial-gradient(circle, #F5E8D0 25%, #3C1A08 60%, #0A0908 100%)',
+  'fond-avatar-or-fondu':
+    'radial-gradient(circle, #FFF8E0 20%, #C87830 50%, #7C2D12 75%, #0A0908 100%)',
+  'fond-avatar-pierre':
+    'radial-gradient(circle, #F0F4F8 20%, #505868 55%, #1A1E26 85%, #0A0908 100%)',
 }
 
 export const COSMETICS = [
@@ -57,7 +76,7 @@ export const COSMETICS = [
     price: 1200,
     description: "Pour celui qui a fait amitié avec sa propre nuit.",
   },
-  // Fonds
+  // Fonds de page
   {
     id: 'fond-forge-silencieuse',
     name: 'Forge silencieuse',
@@ -114,6 +133,47 @@ export const COSMETICS = [
     rarity: 'eveille',
     price: 200,
     description: "Armure d'épaule, regard de feu. Elle dirige la forge.",
+  },
+  // Fonds d'avatar — fond Braise offert par défaut (non vendu), les autres s'achètent
+  {
+    id: 'fond-avatar-abime',
+    name: 'Abîme',
+    type: 'fond-avatar',
+    rarity: 'brut',
+    price: 150,
+    description: 'Un gouffre calme et froid. Quelque chose dort là-dedans.',
+  },
+  {
+    id: 'fond-avatar-cendres',
+    name: 'Cendres',
+    type: 'fond-avatar',
+    rarity: 'brut',
+    price: 200,
+    description: 'Ce qui reste après la combustion. Sobre. Durable.',
+  },
+  {
+    id: 'fond-avatar-nuit-forge',
+    name: 'Nuit de Forge',
+    type: 'fond-avatar',
+    rarity: 'forge',
+    price: 400,
+    description: 'La forge éteinte garde sa chaleur. Les meilleurs travaillent la nuit.',
+  },
+  {
+    id: 'fond-avatar-or-fondu',
+    name: 'Or Fondu',
+    type: 'fond-avatar',
+    rarity: 'eveille',
+    price: 600,
+    description: "L'ambre et l'or se mêlent. Réservé à ceux qui brillent.",
+  },
+  {
+    id: 'fond-avatar-pierre',
+    name: "Pierre d'Ascension",
+    type: 'fond-avatar',
+    rarity: 'ascendant',
+    price: 1200,
+    description: "Argent froid, nuit absolue. Le fond des légendes.",
   },
 ]
 

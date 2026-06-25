@@ -35,6 +35,7 @@ export default function Home() {
           level={lvl.level}
           auraId={player.cosmeticsEquipped?.aura}
           skinId={player.cosmeticsEquipped?.skin}
+          fondId={player.cosmeticsEquipped?.['fond-avatar']}
           pixelSize={8}
         />
       </div>

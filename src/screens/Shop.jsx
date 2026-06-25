@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check, ShoppingBag } from 'lucide-react'
 import ConfirmModal from '../components/ui/ConfirmModal'
-import { COSMETICS, RARITIES, COSMETIC_TYPES } from '../domain/cosmetics'
+import { COSMETICS, RARITIES, COSMETIC_TYPES, FOND_AVATAR_GRADIENTS } from '../domain/cosmetics'
 import {
   loadPlayer,
   getBalance,
@@ -124,6 +124,14 @@ export default function Shop() {
                       style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
+                </div>
+              )}
+              {c.type === 'fond-avatar' && (
+                <div className="mt-3 flex justify-center">
+                  <div
+                    className="h-20 w-20 rounded-full border border-forge-light/60"
+                    style={{ background: FOND_AVATAR_GRADIENTS[c.id] }}
+                  />
                 </div>
               )}
               <p className="mt-3 text-xs leading-relaxed text-ash">

@@ -1,3 +1,5 @@
+import { FOND_AVATAR_GRADIENTS } from '../../domain/cosmetics'
+
 // Pixel art 16×16, chaque caractère = 1 pixel coloré, _ = transparent
 const CHAR_DESIGN = [
   '________________',
@@ -39,11 +41,15 @@ function getPalette(level) {
   return PALETTES[2]
 }
 
-export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }) {
+export default function PixelAvatar({ level = 0, auraId, skinId, fondId, pixelSize = 6 }) {
   const palette = getPalette(level)
   const svgDim = 16 * pixelSize
   const containerDim = svgDim + 32
   const glow = auraId ? (AURA_SHADOWS[auraId] ?? undefined) : undefined
+
+  const circleBackground = skinId
+    ? (FOND_AVATAR_GRADIENTS[fondId] ?? FOND_AVATAR_GRADIENTS.default)
+    : '#1A1614'
 
   return (
     <div
@@ -62,15 +68,10 @@ export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }
         aria-hidden
       />
 
-      {/* Cercle de fond — crème pour skin (fond PNG visible = blanc → crème via multiply),
-          forge pour SVG CSS */}
+      {/* Cercle de fond avec gradient */}
       <div
         className="absolute overflow-hidden rounded-full border border-ember/30"
-        style={{
-          inset: 16,
-          boxShadow: glow,
-          background: skinId ? '#F5F0E8' : '#1A1614',
-        }}
+        style={{ inset: 16, boxShadow: glow, background: circleBackground }}
         aria-hidden
       >
         {skinId && (
