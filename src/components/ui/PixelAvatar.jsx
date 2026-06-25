@@ -78,7 +78,7 @@ export default function PixelAvatar({ level = 0, auraId, skinId, pixelSize = 6 }
             src={`/avatars/${skinId}.png`}
             alt=""
             className="h-full w-full object-contain"
-            style={{ imageRendering: 'pixelated', mixBlendMode: 'multiply' }}
+            style={{ imageRendering: 'pixelated' }}
           />
         )}
       </div>

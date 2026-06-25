@@ -102,7 +102,7 @@ export default function Onboarding({ onComplete }) {
                       src={`/avatars/${id}.png`}
                       alt={label}
                       className="h-auto w-full"
-                      style={{ imageRendering: 'pixelated', mixBlendMode: 'multiply' }}
+                      style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
                   <div className="border-t border-forge-light bg-charcoal px-1 py-1.5 text-center text-[8px] uppercase leading-tight tracking-[0.1em] text-ash">

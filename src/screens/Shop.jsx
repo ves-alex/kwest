@@ -121,7 +121,7 @@ export default function Shop() {
                       src={`/avatars/${c.id}.png`}
                       alt={c.name}
                       className="h-28 w-28 object-contain"
-                      style={{ imageRendering: 'pixelated', mixBlendMode: 'multiply' }}
+                      style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
                 </div>
