@@ -32,7 +32,6 @@ export default function Home() {
 
       <div className="mx-auto mt-10 flex justify-center">
         <PixelAvatar
-          level={lvl.level}
           auraId={player.cosmeticsEquipped?.aura}
           skinId={player.cosmeticsEquipped?.skin}
           fondId={player.cosmeticsEquipped?.['fond-avatar']}
