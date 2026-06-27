@@ -1,3 +1,4 @@
+import { motion } from 'motion/react'
 import { FOND_AVATAR_GRADIENTS } from '../../domain/cosmetics'
 
 const AURA_SHADOWS = {
@@ -31,9 +32,11 @@ export default function PixelAvatar({ auraId, skinId, fondId, pixelSize = 6 }) {
         style={{ inset: 0 }}
         aria-hidden
       />
-      <div
-        className="absolute rounded-full border border-forge-light/35"
-        style={{ inset: 6 }}
+      <motion.div
+        className="absolute rounded-full border border-forge-light"
+        style={{ inset: 6, opacity: 0.35 }}
+        animate={{ opacity: [0.35, 0.65, 0.35], scale: [1, 1.015, 1] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
         aria-hidden
       />
 

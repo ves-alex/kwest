@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import { Flame, X, Plus, Trash2, Anvil, Check } from 'lucide-react'
 import {
@@ -28,6 +29,25 @@ import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import RestTimer from '../components/ui/RestTimer'
 import ConfirmModal from '../components/ui/ConfirmModal'
+
+function CountUp({ to, delay = 0, duration = 1.2 }) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (!to) return
+    const timer = setTimeout(() => {
+      const start = performance.now()
+      const tick = (now) => {
+        const t = Math.min((now - start) / (duration * 1000), 1)
+        setValue(Math.round((1 - Math.pow(2, -10 * t)) * to))
+        if (t < 1) requestAnimationFrame(tick)
+        else setValue(to)
+      }
+      requestAnimationFrame(tick)
+    }, delay * 1000)
+    return () => clearTimeout(timer)
+  }, [to, delay, duration])
+  return value
+}
 
 function formatStartedAt(iso) {
   const d = new Date(iso)
@@ -185,11 +205,13 @@ export default function Session() {
   // --- Écran récap abandonné ---
   if (recap?.abandoned) {
     return (
-      <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center"
+      >
         <p className="text-[10px] uppercase tracking-[0.4em] text-ash">séance abandonnée</p>
-        <p className="mt-6 font-display text-3xl uppercase tracking-[0.1em] text-ash">
-          Trop courte
-        </p>
+        <p className="mt-6 font-display text-3xl uppercase tracking-[0.1em] text-ash">Trop courte</p>
         <p className="mt-4 max-w-xs text-sm leading-relaxed text-ash/70">
           Moins de 5 min sans exercice. Aucune rune forgée.
         </p>
@@ -200,7 +222,7 @@ export default function Session() {
         >
           Fermer
         </button>
-      </div>
+      </motion.div>
     )
   }
 
@@ -208,60 +230,111 @@ export default function Session() {
   if (recap) {
     return (
       <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
-        <p className="text-[10px] uppercase tracking-[0.4em] text-ash">
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="text-[10px] uppercase tracking-[0.4em] text-ash"
+        >
           {recap.isTimerOnly ? 'séance libre forgée' : 'séance forgée'}
-        </p>
-        <div className="mt-6 flex h-16 w-16 items-center justify-center rounded-full border border-ember bg-forge">
+        </motion.p>
+
+        <motion.div
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.08, type: 'spring', stiffness: 280, damping: 20 }}
+          className="mt-6 flex h-16 w-16 items-center justify-center rounded-full border border-ember bg-forge"
+        >
           <Anvil size={28} className="text-ember" />
-        </div>
+        </motion.div>
 
-        <p className="mt-8 font-display text-5xl tracking-wider text-ember">
-          +{recap.runes} {RUNE_SYMBOL}
-        </p>
-        <p className="mt-1 text-xs uppercase tracking-[0.3em] text-cream">
+        <motion.p
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.24, duration: 0.45, ease: [0.25, 0, 0, 1] }}
+          className="mt-8 font-display text-5xl tracking-wider text-ember"
+        >
+          +<CountUp to={recap.runes} delay={0.24} /> {RUNE_SYMBOL}
+        </motion.p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.38 }}
+          className="mt-1 text-xs uppercase tracking-[0.3em] text-cream"
+        >
           runes d'effort
-        </p>
+        </motion.p>
 
-        <p className="mt-6 font-display text-2xl tracking-wider text-cream">
-          +{recap.xp} XP
-        </p>
+        <motion.p
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.48, duration: 0.35, ease: [0.25, 0, 0, 1] }}
+          className="mt-6 font-display text-2xl tracking-wider text-cream"
+        >
+          +<CountUp to={recap.xp} delay={0.48} /> XP
+        </motion.p>
 
-        {/* Stats de séance */}
         {!recap.isTimerOnly && recap.totalSets > 0 && (
-          <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-ash">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.58 }}
+            className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-ash"
+          >
             {recap.totalExos > 0 && <span>{recap.totalExos} exercice{recap.totalExos > 1 ? 's' : ''}</span>}
             <span>{recap.totalSets} série{recap.totalSets > 1 ? 's' : ''}</span>
             {recap.totalVolume > 0 && <span>{recap.totalVolume} kg</span>}
             <span>{recap.durationMin} min</span>
-          </div>
+          </motion.div>
         )}
         {recap.isTimerOnly && (
-          <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-ash">
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.58 }}
+            className="mt-2 text-[10px] uppercase tracking-[0.3em] text-ash"
+          >
             {recap.durationMin} min · séance sans exercices
-          </p>
+          </motion.p>
         )}
 
         {recap.levelUp && (
-          <div className="mt-8 w-full max-w-xs rounded-xl border border-ember bg-forge p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.68, type: 'spring', stiffness: 240, damping: 24 }}
+            className="mt-8 w-full max-w-xs rounded-xl border border-ember bg-forge p-4 shadow-[0_0_32px_-8px_rgba(124,45,18,0.7)]"
+          >
             <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Nouveau palier</p>
             <p className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
               {recap.newTitle}
             </p>
             <p className="mt-1 text-xs text-ash">Niveau {recap.newLevel}</p>
-          </div>
+          </motion.div>
         )}
 
         {recap.newBadges?.length > 0 && (
           <div className="mt-6 w-full max-w-xs space-y-2">
-            <p className="text-center text-[10px] uppercase tracking-[0.3em] text-ash">
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.75 }}
+              className="text-center text-[10px] uppercase tracking-[0.3em] text-ash"
+            >
               {recap.newBadges.length === 1 ? 'Badge débloqué' : `${recap.newBadges.length} badges débloqués`}
-            </p>
-            {recap.newBadges.map((id) => {
+            </motion.p>
+            {recap.newBadges.map((id, i) => {
               const b = findBadgeById(id)
               if (!b) return null
               const Icon = b.Icon
               return (
-                <div key={id} className="flex items-center gap-3 rounded-xl border border-glow bg-forge p-3 text-left">
+                <motion.div
+                  key={id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.82 + i * 0.12, duration: 0.35 }}
+                  className="flex items-center gap-3 rounded-xl border border-glow bg-forge p-3 text-left"
+                >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-glow bg-charcoal">
                     <Icon size={18} className="text-glow" />
                   </div>
@@ -269,19 +342,22 @@ export default function Session() {
                     <p className="text-sm font-medium text-cream">{b.name}</p>
                     <p className="text-[10px] text-ash">{b.description}</p>
                   </div>
-                </div>
+                </motion.div>
               )
             })}
           </div>
         )}
 
-        <button
+        <motion.button
           type="button"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: recap.newBadges?.length ? 0.82 + recap.newBadges.length * 0.12 : 0.78 }}
           onClick={handleCloseRecap}
           className="mt-10 inline-flex items-center gap-2 rounded-md border border-ember bg-forge px-8 py-3 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
         >
           Continuer
-        </button>
+        </motion.button>
       </div>
     )
   }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Pencil, X } from 'lucide-react'
 import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
@@ -216,13 +217,22 @@ export default function Home() {
         </section>
       </div>
 
-      {/* Dressing — bottom sheet */}
-      {dressingOpen && (
-        <div
+      {/* Dressing — bottom sheet animé */}
+      <AnimatePresence>
+        {dressingOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
           className="fixed inset-0 z-50 bg-charcoal/80 backdrop-blur-sm"
           onClick={() => setDressingOpen(false)}
         >
-          <div
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 360, damping: 36 }}
             className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-forge-light bg-forge px-6 pb-16 pt-6"
             onClick={(e) => e.stopPropagation()}
           >
@@ -348,9 +358,10 @@ export default function Home() {
                 </div>
               )
             })}
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
