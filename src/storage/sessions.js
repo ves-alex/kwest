@@ -149,6 +149,23 @@ export function removeSetFromEntry(entryIndex, setIndex) {
   return active
 }
 
+// Retourne le meilleur set de tous les temps pour un exercice (critère : poids max, puis reps)
+export function getPersonalRecord(exerciseId, sessions) {
+  let best = null
+  for (const s of sessions) {
+    const entry = s.entries.find((e) => e.exerciseId === exerciseId)
+    if (!entry) continue
+    for (const set of entry.sets) {
+      const w = parseFloat(set.weight) || 0
+      const r = parseFloat(set.reps) || 0
+      if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
+        best = { weight: w, reps: r }
+      }
+    }
+  }
+  return best
+}
+
 // Retourne le dernier set enregistré pour un exercice donné dans l'historique
 export function getLastPerformance(exerciseId, sessions) {
   const sorted = [...sessions].sort(

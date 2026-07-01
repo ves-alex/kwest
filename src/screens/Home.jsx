@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, X, LogOut } from 'lucide-react'
 import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
+import { supabase } from '../lib/supabase'
 import {
   findCosmeticById,
   COSMETICS,
@@ -18,6 +19,16 @@ export default function Home() {
   const [player, setPlayer] = useState(loadPlayer)
   const [selectedBadge, setSelectedBadge] = useState(null)
   const [dressingOpen, setDressingOpen] = useState(false)
+  const [authUser, setAuthUser] = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
+  }, [])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    localStorage.clear()
+  }
 
   const balance = getBalance(player)
   const lvl = computeLevel(player.totalXp)
@@ -217,6 +228,42 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {/* Profil + déconnexion */}
+        {authUser && (
+          <div className="mx-auto mt-6 max-w-md">
+            <div className="flex items-center justify-between rounded-2xl border border-forge-light bg-forge px-4 py-3">
+              <div className="flex items-center gap-3">
+                {authUser.user_metadata?.avatar_url ? (
+                  <img
+                    src={authUser.user_metadata.avatar_url}
+                    alt=""
+                    className="h-8 w-8 rounded-full border border-forge-light"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-forge-light bg-charcoal text-xs text-ash">
+                    {authUser.email?.[0]?.toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-cream">
+                    {authUser.user_metadata?.full_name ?? authUser.email}
+                  </p>
+                  <p className="truncate text-[10px] text-ash/60">{authUser.email}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 rounded-md border border-forge-light px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ember hover:text-ember"
+                aria-label="Se déconnecter"
+              >
+                <LogOut size={11} />
+                Quitter
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Dressing — bottom sheet animé */}

@@ -14,6 +14,7 @@ import {
   updateSetInEntry,
   removeSetFromEntry,
   getLastPerformance,
+  getPersonalRecord,
 } from '../storage/sessions'
 import { loadPlayer, savePlayer, addRunes, addXp } from '../storage/player'
 import {
@@ -416,6 +417,7 @@ export default function Session() {
         {active.entries.map((entry, entryIndex) => {
           const exo = findExerciseById(entry.exerciseId)
           const lastPerf = getLastPerformance(entry.exerciseId, historySessions)
+          const pr = getPersonalRecord(entry.exerciseId, historySessions)
           return (
             <article key={entryIndex} className="rounded-2xl border border-forge-light bg-forge p-4">
               <header className="flex items-start gap-3">
@@ -427,11 +429,18 @@ export default function Session() {
                       {EQUIPMENT[exo.equipment]}
                     </p>
                   )}
-                  {lastPerf && (
-                    <p className="mt-0.5 text-[10px] text-ash/60">
-                      Dernière fois · {lastPerf.weight || '—'}kg × {lastPerf.reps || '—'}
-                    </p>
-                  )}
+                  <div className="mt-0.5 flex flex-wrap gap-x-3">
+                    {lastPerf && (
+                      <p className="text-[10px] text-ash/60">
+                        Dernière · {lastPerf.weight || '—'}kg × {lastPerf.reps || '—'}
+                      </p>
+                    )}
+                    {pr && (
+                      <p className="text-[10px] text-ember/70">
+                        PR · {pr.weight}kg × {pr.reps}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -445,11 +454,16 @@ export default function Session() {
 
               {entry.sets.length > 0 && (
                 <ul className="mt-4 space-y-2">
-                  {entry.sets.map((set, setIndex) => (
+                  {entry.sets.map((set, setIndex) => {
+                    const isNewPR = pr &&
+                      (parseFloat(set.weight) || 0) > 0 &&
+                      ((parseFloat(set.weight) || 0) > pr.weight ||
+                       ((parseFloat(set.weight) || 0) === pr.weight && (parseFloat(set.reps) || 0) > pr.reps))
+                    return (
                     <li
                       key={setIndex}
                       className={`flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors ${
-                        set.validated ? 'bg-glow/8' : ''
+                        set.validated ? 'bg-glow/8' : isNewPR ? 'bg-ember/8' : ''
                       }`}
                     >
                       {/* Numéro ou check */}
@@ -498,6 +512,11 @@ export default function Session() {
                           kg
                         </span>
                       </div>
+                      {isNewPR && (
+                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-ember">
+                          PR
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleRemoveSet(entryIndex, setIndex)}
@@ -507,7 +526,8 @@ export default function Session() {
                         <X size={14} />
                       </button>
                     </li>
-                  ))}
+                  )})}
+
                 </ul>
               )}
 
