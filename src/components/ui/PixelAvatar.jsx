@@ -15,7 +15,7 @@ const AURA_SHADOWS = {
  * Chaque couche est un <img> positionné en absolute h-full w-full object-contain.
  * Pour ajouter un type (ex: "chapeau"), passer `hatId` et ajouter un bloc identique.
  */
-export default function PixelAvatar({ auraId, skinId, fondId, pixelSize = 6 }) {
+export default function PixelAvatar({ auraId, skinId, fondId, hatId, weaponId, pixelSize = 6 }) {
   const svgDim = 16 * pixelSize
   const containerDim = svgDim + 32
   const glow = auraId ? (AURA_SHADOWS[auraId] ?? undefined) : undefined
@@ -55,9 +55,24 @@ export default function PixelAvatar({ auraId, skinId, fondId, pixelSize = 6 }) {
             style={{ imageRendering: 'pixelated' }}
           />
         )}
-        {/* Couche 2+ : futurs cosmétiques (chapeau, arme, etc.)
-            Exemple : hatId && <img src={`/avatars/hats/${hatId}.png`} ... />
-        */}
+        {/* Couche 2 : chapeau */}
+        {hatId && (
+          <img
+            src={`/avatars/${hatId}.png`}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        )}
+        {/* Couche 3 : arme */}
+        {weaponId && (
+          <img
+            src={`/avatars/${weaponId}.png`}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        )}
       </div>
     </div>
   )

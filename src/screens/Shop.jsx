@@ -129,6 +129,20 @@ export default function Shop() {
                   </div>
                 </div>
               )}
+              {(c.type === 'chapeau' || c.type === 'arme') && (
+                <div className="mt-3 flex justify-center">
+                  <div
+                    className="relative h-28 w-28 overflow-hidden rounded-xl border border-forge-light/60 bg-charcoal"
+                  >
+                    <img
+                      src={`/avatars/${c.id}.png`}
+                      alt={c.name}
+                      className="absolute inset-0 h-full w-full object-contain p-2"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  </div>
+                </div>
+              )}
               {c.type === 'fond-avatar' && (
                 <div className="mt-3 flex justify-center">
                   <div
