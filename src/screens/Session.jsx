@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { Flame, X, Plus, Trash2, Anvil, Check } from 'lucide-react'
+import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked } from 'lucide-react'
 import {
   loadActiveSession,
   saveActiveSession,
@@ -30,6 +30,7 @@ import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import RestTimer from '../components/ui/RestTimer'
 import ConfirmModal from '../components/ui/ConfirmModal'
+import { loadRoutines, saveRoutine, deleteRoutine, buildRoutine } from '../storage/routines'
 
 function CountUp({ to, delay = 0, duration = 1.2 }) {
   const [value, setValue] = useState(0)
@@ -79,6 +80,10 @@ export default function Session() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   // Historique chargé une fois au montage pour les hints "dernière perf"
   const [historySessions] = useState(() => loadSessions())
+  const [routinePickerOpen, setRoutinePickerOpen] = useState(false)
+  const [routines, setRoutines] = useState(loadRoutines)
+  const [saveRoutineState, setSaveRoutineState] = useState('idle') // 'idle' | 'editing' | 'saved'
+  const [routineName, setRoutineName] = useState('')
 
   useEffect(() => {
     if (!active) { setElapsed(0); return }
@@ -196,11 +201,46 @@ export default function Session() {
       totalExos,
       totalSets,
       totalVolume,
+      exerciseIds: finished.entries.map((e) => e.exerciseId),
     })
   }
 
   const handleCloseRecap = () => {
     setRecap(null)
+    setSaveRoutineState('idle')
+    setRoutineName('')
+  }
+
+  const handleStartFromRoutine = (routine) => {
+    const s = createSession()
+    s.entries = routine.exerciseIds.map((id) => ({ exerciseId: id, sets: [] }))
+    saveActiveSession(s)
+    setActive(s)
+    setRoutinePickerOpen(false)
+  }
+
+  const handleDeleteRoutine = (id) => {
+    deleteRoutine(id)
+    setRoutines(loadRoutines())
+  }
+
+  const handleOpenSaveRoutine = () => {
+    const defaultName = (recap.exerciseIds ?? [])
+      .slice(0, 2)
+      .map((id) => findExerciseById(id)?.name ?? id)
+      .join(' + ')
+      .slice(0, 40)
+    setRoutineName(defaultName)
+    setSaveRoutineState('editing')
+  }
+
+  const handleSaveRoutine = () => {
+    const exoIds = recap.exerciseIds ?? []
+    if (exoIds.length === 0) return
+    const r = buildRoutine(routineName.trim() || 'Ma routine', exoIds)
+    saveRoutine(r)
+    setRoutines(loadRoutines())
+    setSaveRoutineState('saved')
   }
 
   // --- Écran récap abandonné ---
@@ -349,13 +389,66 @@ export default function Session() {
           </div>
         )}
 
+        {!recap.isTimerOnly && (recap.exerciseIds?.length ?? 0) > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: recap.newBadges?.length ? 0.9 + recap.newBadges.length * 0.12 : 0.84 }}
+            className="mt-8 w-full max-w-xs"
+          >
+            {saveRoutineState === 'saved' ? (
+              <p className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em] text-glow">
+                <Check size={11} />
+                Routine enregistrée
+              </p>
+            ) : saveRoutineState === 'editing' ? (
+              <div className="rounded-xl border border-forge-light bg-forge p-3">
+                <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash">Nom de la routine</p>
+                <input
+                  type="text"
+                  value={routineName}
+                  onChange={(e) => setRoutineName(e.target.value)}
+                  placeholder="Ma routine"
+                  className="w-full rounded-md border border-forge-light bg-charcoal px-3 py-2 text-sm text-cream placeholder:text-ash/50 focus:border-ember focus:outline-none"
+                  autoFocus
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveRoutine}
+                    className="flex-1 rounded-md border border-ember bg-transparent py-1.5 text-[10px] uppercase tracking-[0.2em] text-cream transition-colors hover:bg-ember/15"
+                  >
+                    Enregistrer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaveRoutineState('idle')}
+                    className="rounded-md border border-forge-light px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenSaveRoutine}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-forge-light bg-transparent py-2.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60 hover:text-cream"
+              >
+                <BookMarked size={12} />
+                Garder comme routine
+              </button>
+            )}
+          </motion.div>
+        )}
+
         <motion.button
           type="button"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: recap.newBadges?.length ? 0.82 + recap.newBadges.length * 0.12 : 0.78 }}
           onClick={handleCloseRecap}
-          className="mt-10 inline-flex items-center gap-2 rounded-md border border-ember bg-forge px-8 py-3 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
+          className="mt-6 inline-flex items-center gap-2 rounded-md border border-ember bg-forge px-8 py-3 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
         >
           Continuer
         </motion.button>
@@ -366,23 +459,100 @@ export default function Session() {
   // --- Écran initial (pas de séance) ---
   if (!active) {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
-        <p className="text-[10px] uppercase tracking-[0.4em] text-ash">aucune séance en cours</p>
-        <h1 className="mt-4 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
-          Séance
-        </h1>
-        <p className="mt-6 max-w-xs text-sm leading-relaxed text-ash">
-          Prêt à forger ? Lance une nouvelle séance, ajoute tes exercices au fil de l'entraînement.
-        </p>
-        <button
-          type="button"
-          onClick={handleStart}
-          className="mt-10 inline-flex items-center gap-3 rounded-md border border-ember bg-forge px-6 py-3.5 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
-        >
-          <Flame size={18} className="text-ember" />
-          Démarrer une séance
-        </button>
-      </div>
+      <>
+        <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
+          <p className="text-[10px] uppercase tracking-[0.4em] text-ash">aucune séance en cours</p>
+          <h1 className="mt-4 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
+            Séance
+          </h1>
+          <p className="mt-6 max-w-xs text-sm leading-relaxed text-ash">
+            Prêt à forger ? Lance une nouvelle séance, ajoute tes exercices au fil de l'entraînement.
+          </p>
+          <button
+            type="button"
+            onClick={handleStart}
+            className="mt-10 inline-flex items-center gap-3 rounded-md border border-ember bg-forge px-6 py-3.5 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
+          >
+            <Flame size={18} className="text-ember" />
+            Démarrer une séance
+          </button>
+          {routines.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setRoutinePickerOpen(true)}
+              className="mt-3 inline-flex items-center gap-2 rounded-md border border-forge-light bg-transparent px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60 hover:text-cream"
+            >
+              <BookMarked size={13} />
+              Depuis une routine
+            </button>
+          )}
+        </div>
+
+        {/* Routine picker — bottom sheet */}
+        <AnimatePresence>
+          {routinePickerOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-charcoal/80 backdrop-blur-sm"
+              onClick={() => setRoutinePickerOpen(false)}
+            >
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 360, damping: 36 }}
+                className="absolute inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto rounded-t-3xl border-t border-forge-light bg-forge px-6 pb-16 pt-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-5 flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Mes routines</p>
+                  <button
+                    type="button"
+                    onClick={() => setRoutinePickerOpen(false)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
+                    aria-label="Fermer"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                <ul className="space-y-2">
+                  {routines.map((r) => (
+                    <li key={r.id} className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleStartFromRoutine(r)}
+                        className="flex min-w-0 flex-1 flex-col rounded-xl border border-forge-light bg-charcoal/40 px-4 py-3 text-left transition-colors hover:border-ember"
+                      >
+                        <p className="text-sm font-medium text-cream">{r.name}</p>
+                        <p className="mt-0.5 text-[10px] text-ash/60">
+                          {r.exerciseIds.length} exercice{r.exerciseIds.length > 1 ? 's' : ''}
+                          {' · '}
+                          {r.exerciseIds
+                            .slice(0, 2)
+                            .map((id) => findExerciseById(id)?.name ?? id)
+                            .join(', ')}
+                          {r.exerciseIds.length > 2 ? '…' : ''}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRoutine(r.id)}
+                        className="shrink-0 text-ash/40 transition-colors hover:text-ember"
+                        aria-label={`Supprimer ${r.name}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
     )
   }
 

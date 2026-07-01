@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight } from 'lucide-react'
-import { loadSessions, deleteSession } from '../storage/sessions'
+import { ChevronRight, ArrowLeft } from 'lucide-react'
+import { loadSessions, deleteSession, getPersonalRecord } from '../storage/sessions'
 import { findExerciseById } from '../domain/exercises'
 import SwipeToDelete from '../components/ui/SwipeToDelete'
 import ConfirmModal from '../components/ui/ConfirmModal'
+import ProgressChart from '../components/ui/ProgressChart'
 
 function isSameDay(a, b) {
   return (
@@ -56,6 +57,53 @@ export default function Stats() {
     )
   )
   const [pendingDeleteId, setPendingDeleteId] = useState(null)
+  const [view, setView] = useState('sessions') // 'sessions' | 'progression'
+  const [selectedExoId, setSelectedExoId] = useState(null)
+  const [exoQuery, setExoQuery] = useState('')
+
+  const exercisesInHistory = useMemo(() => {
+    const counts = {}
+    for (const s of sessions) {
+      for (const e of s.entries) {
+        counts[e.exerciseId] = (counts[e.exerciseId] ?? 0) + 1
+      }
+    }
+    return Object.entries(counts)
+      .map(([id, count]) => ({ exo: findExerciseById(id), id, count }))
+      .filter((x) => x.exo)
+      .sort((a, b) => b.count - a.count)
+  }, [sessions])
+
+  const filteredExos = useMemo(() => {
+    if (!exoQuery.trim()) return exercisesInHistory
+    const q = exoQuery.toLowerCase()
+    return exercisesInHistory.filter((x) => x.exo.name.toLowerCase().includes(q))
+  }, [exercisesInHistory, exoQuery])
+
+  const progressionData = useMemo(() => {
+    if (!selectedExoId) return []
+    return sessions
+      .filter((s) => s.entries.some((e) => e.exerciseId === selectedExoId))
+      .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt))
+      .slice(-10)
+      .map((s) => {
+        const entry = s.entries.find((e) => e.exerciseId === selectedExoId)
+        const maxWeight = Math.max(0, ...entry.sets.map((set) => parseFloat(set.weight) || 0))
+        return {
+          date: new Date(s.startedAt).toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'short',
+          }),
+          maxWeight,
+        }
+      })
+      .filter((d) => d.maxWeight > 0)
+  }, [sessions, selectedExoId])
+
+  const selectedPR = useMemo(
+    () => (selectedExoId ? getPersonalRecord(selectedExoId, sessions) : null),
+    [sessions, selectedExoId]
+  )
 
   const handleDelete = (id) => {
     setPendingDeleteId(id)
@@ -80,16 +128,34 @@ export default function Stats() {
         <h1 className="mt-4 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
           Chroniques
         </h1>
+        {sessions.length > 0 && (
+          <div className="mt-6 flex justify-center gap-1">
+            {['sessions', 'progression'].map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => { setView(v); setSelectedExoId(null); setExoQuery('') }}
+                className={`rounded-full px-4 py-1.5 text-[10px] uppercase tracking-[0.2em] transition-colors ${
+                  view === v
+                    ? 'bg-ember/15 text-cream border border-ember/40'
+                    : 'border border-forge-light text-ash hover:border-ash/60 hover:text-cream'
+                }`}
+              >
+                {v === 'sessions' ? 'Séances' : 'Progression'}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
-      <section className="mx-auto mt-10 max-w-md">
+      <section className="mx-auto mt-8 max-w-md">
         {sessions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-forge-light bg-forge/40 p-8 text-center">
             <p className="text-sm text-ash">
               Ton historique est vide. Termine une séance et elle s'inscrira ici.
             </p>
           </div>
-        ) : (
+        ) : view === 'sessions' ? (
           <>
             <p className="mb-4 text-center text-[10px] uppercase tracking-[0.3em] text-ash/60">
               ← glisse pour supprimer
@@ -148,6 +214,91 @@ export default function Stats() {
               </AnimatePresence>
             </ul>
           </>
+        ) : selectedExoId ? (
+          /* --- Vue progression d'un exercice --- */
+          <div>
+            <button
+              type="button"
+              onClick={() => setSelectedExoId(null)}
+              className="mb-4 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:text-cream"
+            >
+              <ArrowLeft size={12} />
+              Tous les exercices
+            </button>
+            <div className="rounded-2xl border border-forge-light bg-forge p-5">
+              <p className="text-xs font-medium text-cream">
+                {findExerciseById(selectedExoId)?.name ?? selectedExoId}
+              </p>
+              {progressionData.length >= 2 ? (
+                <>
+                  <div className="mt-4">
+                    <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash/50">
+                      Poids max par séance (kg)
+                    </p>
+                    <ProgressChart data={progressionData} />
+                  </div>
+                  {selectedPR && (
+                    <div className="mt-4 flex gap-6">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">Record</p>
+                        <p className="mt-1 text-sm font-medium text-ember">
+                          {selectedPR.weight}kg × {selectedPR.reps}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">Séances</p>
+                        <p className="mt-1 text-sm font-medium text-cream">
+                          {exercisesInHistory.find((x) => x.id === selectedExoId)?.count ?? '—'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : progressionData.length === 1 ? (
+                <p className="mt-3 text-xs text-ash/60">
+                  1 séance avec ce poids. Reviens après quelques séances pour voir ta progression.
+                </p>
+              ) : (
+                <p className="mt-3 text-xs text-ash/60">
+                  Exercice sans charge enregistrée — pas de courbe de progression.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* --- Liste des exercices --- */
+          <div>
+            <input
+              type="text"
+              value={exoQuery}
+              onChange={(e) => setExoQuery(e.target.value)}
+              placeholder="Chercher un exercice…"
+              className="mb-4 w-full rounded-xl border border-forge-light bg-forge px-4 py-2.5 text-sm text-cream placeholder:text-ash/50 focus:border-ember focus:outline-none"
+            />
+            {filteredExos.length === 0 ? (
+              <p className="text-center text-sm text-ash/60">Aucun exercice trouvé.</p>
+            ) : (
+              <ul className="space-y-2">
+                {filteredExos.map(({ exo, id, count }) => (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedExoId(id)}
+                      className="flex w-full items-center justify-between rounded-2xl border border-forge-light bg-forge p-4 text-left transition-colors hover:border-ember"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-cream">{exo.name}</p>
+                        <p className="mt-0.5 text-[10px] text-ash/60">
+                          {count} séance{count > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-ash" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </section>
       <ConfirmModal
