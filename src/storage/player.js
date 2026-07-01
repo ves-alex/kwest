@@ -1,3 +1,5 @@
+import { pushSync } from '../lib/sync'
+
 const PLAYER_KEY = 'kwest:player'
 
 const DEFAULT_PLAYER = {
@@ -34,6 +36,7 @@ export function savePlayer(player) {
   try {
     localStorage.setItem(PLAYER_KEY, JSON.stringify(player))
     emitPlayerChange()
+    pushSync()
     return true
   } catch (err) {
     console.error('[kwest] savePlayer failed', err)

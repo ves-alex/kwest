@@ -1,3 +1,5 @@
+import { pushSync } from '../lib/sync'
+
 const STORAGE_KEY = 'kwest:sessions'
 const ACTIVE_KEY = 'kwest:active-session'
 
@@ -18,6 +20,7 @@ export function loadSessions() {
 function writeAll(sessions) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+    pushSync()
     return true
   } catch (err) {
     console.error('[kwest] writeAll failed', err)
