@@ -12,8 +12,9 @@ import {
 } from '../domain/cosmetics'
 import { BADGES, findBadgeById } from '../domain/badges'
 import PixelAvatar from '../components/ui/PixelAvatar'
+import FloatingBadges from '../components/ui/FloatingBadges'
 
-const DRESSING_TYPES = ['skin', 'chapeau', 'arme', 'fond-avatar', 'aura', 'titre', 'fond']
+const DRESSING_TYPES = ['skin', 'fond-avatar', 'aura', 'titre', 'fond']
 
 export default function Home() {
   const [player, setPlayer] = useState(loadPlayer)
@@ -73,8 +74,6 @@ export default function Home() {
               auraId={player.cosmeticsEquipped?.aura}
               skinId={player.cosmeticsEquipped?.skin}
               fondId={player.cosmeticsEquipped?.['fond-avatar']}
-              hatId={player.cosmeticsEquipped?.chapeau}
-              weaponId={player.cosmeticsEquipped?.arme}
               pixelSize={8}
             />
             <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-forge-light bg-forge text-ash transition-colors group-hover:border-ember group-hover:text-ember">
@@ -303,8 +302,6 @@ export default function Home() {
                 auraId={player.cosmeticsEquipped?.aura}
                 skinId={player.cosmeticsEquipped?.skin}
                 fondId={player.cosmeticsEquipped?.['fond-avatar']}
-                hatId={player.cosmeticsEquipped?.chapeau}
-                weaponId={player.cosmeticsEquipped?.arme}
                 pixelSize={5}
               />
             </div>
@@ -375,26 +372,6 @@ export default function Home() {
                         )
                       }
 
-                      if (type === 'chapeau' || type === 'arme') {
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => handleTryOn(type, c.id)}
-                            aria-label={c.name}
-                            aria-pressed={isEquipped}
-                            className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-forge-light/60 bg-charcoal transition-all ${ringClass}`}
-                          >
-                            <img
-                              src={`/avatars/${c.id}.png`}
-                              alt={c.name}
-                              className="absolute inset-0 h-full w-full object-contain p-1"
-                              style={{ imageRendering: 'pixelated' }}
-                            />
-                          </button>
-                        )
-                      }
-
                       if (type === 'fond-avatar') {
                         return (
                           <button
@@ -433,6 +410,8 @@ export default function Home() {
         </motion.div>
         )}
       </AnimatePresence>
+
+      <FloatingBadges ownedIds={player.cosmeticsOwned} />
     </>
   )
 }

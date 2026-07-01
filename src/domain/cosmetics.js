@@ -13,8 +13,7 @@ export const COSMETIC_TYPES = {
   fond: 'Fond',
   skin: 'Apparence',
   'fond-avatar': "Fond d'avatar",
-  chapeau: 'Couvre-chef',
-  arme: 'Arme',
+  badge: 'Badge',
 }
 
 // Gradients des fonds d'avatar (cercle derrière le personnage)
@@ -136,39 +135,38 @@ export const COSMETICS = [
     price: 200,
     description: "Armure d'épaule, regard de feu. Elle dirige la forge.",
   },
-  // Chapeaux
+  // Badges — flottent librement sur le Refuge
+  {
+    id: 'weapon-haltere',
+    name: "Haltère de l'Initié",
+    type: 'badge',
+    rarity: 'brut',
+    price: 100,
+    description: "L'outil de tous les débuts. Flotte près de toi comme un rappel de l'essentiel.",
+  },
   {
     id: 'hat-casque-forge',
     name: 'Casque de Forge',
-    type: 'chapeau',
+    type: 'badge',
     rarity: 'forge',
     price: 300,
     description: "Acier forgé, garde-joues abaissés. Porte les marques d'une longue bataille.",
   },
   {
-    id: 'hat-couronne-braise',
-    name: 'Couronne de Braise',
-    type: 'chapeau',
-    rarity: 'eveille',
-    price: 700,
-    description: "Trois pointes dorées, gemme sang. Elle ne se mérite pas — elle se forge.",
-  },
-  // Armes
-  {
-    id: 'weapon-haltere',
-    name: "Haltère de l'Initié",
-    type: 'arme',
-    rarity: 'brut',
-    price: 100,
-    description: "Acier brut, grip ferme. L'outil de tous les débuts.",
-  },
-  {
     id: 'weapon-marteau-forge',
     name: 'Marteau de Forge',
-    type: 'arme',
+    type: 'badge',
     rarity: 'forge',
     price: 400,
     description: "Lourd, équilibré, implacable. Ce marteau a refaçonné plus d'une destinée.",
+  },
+  {
+    id: 'hat-couronne-braise',
+    name: 'Couronne de Braise',
+    type: 'badge',
+    rarity: 'eveille',
+    price: 700,
+    description: "Trois pointes dorées, gemme sang. Elle ne se mérite pas — elle se forge.",
   },
   // Fonds d'avatar — fond Braise offert par défaut (non vendu), les autres s'achètent
   {

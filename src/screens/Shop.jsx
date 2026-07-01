@@ -41,8 +41,7 @@ const RARITY_STYLES = {
 
 const SECTIONS = [
   { type: 'skin', label: 'Apparences' },
-  { type: 'chapeau', label: 'Couvre-chefs' },
-  { type: 'arme', label: 'Armes' },
+  { type: 'badge', label: 'Badges' },
   { type: 'fond-avatar', label: "Fonds d'avatar" },
   { type: 'aura', label: 'Auras' },
   { type: 'titre', label: 'Titres' },
@@ -73,14 +72,14 @@ function ItemPreview({ c, player, size = 'sm' }) {
     )
   }
 
-  if (c.type === 'chapeau' || c.type === 'arme') {
+  if (c.type === 'badge') {
     const dim = smDim ? 'h-16 w-16' : 'h-24 w-24'
     return (
-      <div className={`${dim} relative overflow-hidden rounded-xl border border-forge-light/60 bg-charcoal`}>
+      <div className={`${dim} relative overflow-hidden rounded-full border-2 border-forge-light/60 bg-charcoal/75`}>
         <img
           src={`/avatars/${c.id}.png`}
           alt=""
-          className="absolute inset-0 h-full w-full object-contain p-1.5"
+          className="absolute inset-0 h-full w-full object-contain p-1"
           style={{ imageRendering: 'pixelated' }}
         />
       </div>
