@@ -19,16 +19,17 @@ const RARITY_GLOW = {
 // Durée de dérive par badge (légèrement différente pour éviter la synchronisation)
 const DURATIONS = [6.5, 8.2, 7.1, 9.4, 7.8, 8.8]
 
-function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
+function BadgeBubble({ cosmetic, initialX, initialY, duration, maxY }) {
   const [target, setTarget] = useState({ x: initialX, y: initialY })
 
   const drift = useCallback(() => {
     const margin = 60
+    const bottomBound = maxY > 0 ? maxY - 48 : window.innerHeight * 0.5
     setTarget({
-      x: margin + Math.random() * (window.innerWidth  - margin * 2),
-      y: margin + Math.random() * (window.innerHeight - margin * 2),
+      x: margin + Math.random() * (window.innerWidth - margin * 2),
+      y: margin + Math.random() * Math.max(0, bottomBound - margin),
     })
-  }, [])
+  }, [maxY])
 
   return (
     <motion.div
@@ -56,7 +57,7 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
   )
 }
 
-export default function FloatingBadges({ ownedIds }) {
+export default function FloatingBadges({ ownedIds, maxY = 0 }) {
   const badges = (ownedIds ?? [])
     .map((id) => findCosmeticById(id))
     .filter((c) => c?.type === 'badge')
@@ -64,16 +65,17 @@ export default function FloatingBadges({ ownedIds }) {
   if (badges.length === 0) return null
 
   const vw = typeof window !== 'undefined' ? window.innerWidth  : 390
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 844
+  // Zone initiale : autour de l'avatar (centre de la moitié haute)
+  const zoneMidY = maxY > 0 ? maxY / 2 : 220
 
   return (
     <>
       {badges.map((badge, i) => {
-        // Positions initiales réparties en cercle autour du centre
+        // Positions initiales réparties en cercle autour du centre avatar
         const angle = (i / badges.length) * Math.PI * 2 - Math.PI / 2
-        const r = Math.min(vw, vh) * 0.28
+        const r = Math.min(vw, zoneMidY) * 0.35
         const initialX = vw / 2 + Math.cos(angle) * r - 24
-        const initialY = vh / 2 + Math.sin(angle) * r - 24
+        const initialY = zoneMidY + Math.sin(angle) * r - 24
 
         return (
           <BadgeBubble
@@ -82,6 +84,7 @@ export default function FloatingBadges({ ownedIds }) {
             initialX={initialX}
             initialY={initialY}
             duration={DURATIONS[i % DURATIONS.length]}
+            maxY={maxY}
           />
         )
       })}
