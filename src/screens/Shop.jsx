@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, X, ShoppingBag } from 'lucide-react'
 import ConfirmModal from '../components/ui/ConfirmModal'
@@ -9,7 +9,6 @@ import {
   buyCosmetic,
   equipCosmetic,
   unequipCosmetic,
-  addRunes,
 } from '../storage/player'
 import { RUNE_SYMBOL } from '../domain/economy'
 
@@ -146,25 +145,7 @@ export default function Shop() {
   const [player, setPlayer] = useState(loadPlayer)
   const [pendingBuy, setPendingBuy] = useState(null)
   const [selectedItem, setSelectedItem] = useState(null)
-  const [tapCount, setTapCount] = useState(0)
-  const [forgeFlash, setForgeFlash] = useState(false)
-  const tapTimer = useRef(null)
   const balance = getBalance(player)
-
-  const handleBalanceTap = () => {
-    clearTimeout(tapTimer.current)
-    const next = tapCount + 1
-    if (next >= 5) {
-      addRunes(2000)
-      setPlayer(loadPlayer())
-      setTapCount(0)
-      setForgeFlash(true)
-      setTimeout(() => setForgeFlash(false), 800)
-    } else {
-      setTapCount(next)
-      tapTimer.current = setTimeout(() => setTapCount(0), 1500)
-    }
-  }
 
   const confirmBuy = () => {
     if (!pendingBuy) return
@@ -190,17 +171,9 @@ export default function Shop() {
         <h1 className="mt-3 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
           Atelier
         </h1>
-        <button
-          type="button"
-          onClick={handleBalanceTap}
-          className={`mt-4 font-display text-2xl tracking-wider transition-colors ${forgeFlash ? 'text-glow' : 'text-ember'}`}
-          aria-label="Solde de runes"
-        >
+        <p className="mt-4 font-display text-2xl tracking-wider text-ember">
           {RUNE_SYMBOL} {balance}
-          {forgeFlash && (
-            <span className="ml-2 text-sm uppercase tracking-[0.2em] text-glow">+2000</span>
-          )}
-        </button>
+        </p>
       </header>
 
       <div className="mt-10 space-y-8">
