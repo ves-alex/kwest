@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Pencil, X, LogOut } from 'lucide-react'
 import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
@@ -21,17 +21,8 @@ export default function Home() {
   const [selectedBadge, setSelectedBadge] = useState(null)
   const [dressingOpen, setDressingOpen] = useState(false)
   const [authUser, setAuthUser] = useState(null)
-  const [badgeMaxY, setBadgeMaxY] = useState(0)
-  const avatarZoneRef = useRef(null)
-
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
-  }, [])
-
-  useEffect(() => {
-    if (avatarZoneRef.current) {
-      setBadgeMaxY(avatarZoneRef.current.getBoundingClientRect().bottom + 16)
-    }
   }, [])
 
   async function handleLogout() {
@@ -70,36 +61,34 @@ export default function Home() {
           </h1>
         </header>
 
-        {/* Zone avatar + titre — les badges flottent dans cette zone uniquement */}
-        <div ref={avatarZoneRef}>
-          <div className="mx-auto mt-10 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setDressingOpen(true)}
-              className="group relative"
-              aria-label="Ouvrir le dressing"
-            >
-              <PixelAvatar
-                auraId={player.cosmeticsEquipped?.aura}
-                skinId={player.cosmeticsEquipped?.skin}
-                fondId={player.cosmeticsEquipped?.['fond-avatar']}
-                pixelSize={8}
-              />
-              <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-forge-light bg-forge text-ash transition-colors group-hover:border-ember group-hover:text-ember">
-                <Pencil size={11} />
-              </span>
-            </button>
-          </div>
-
-          <p className="mt-4 text-center font-display text-lg uppercase tracking-[0.25em] text-cream">
-            {lvl.title}
-          </p>
-          {equippedTitle && (
-            <p className="mt-1 text-center text-xs italic tracking-wider text-glow">
-              « {equippedTitle.name} »
-            </p>
-          )}
+        {/* Avatar — cliquable pour ouvrir le dressing */}
+        <div className="mx-auto mt-10 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setDressingOpen(true)}
+            className="group relative"
+            aria-label="Ouvrir le dressing"
+          >
+            <PixelAvatar
+              auraId={player.cosmeticsEquipped?.aura}
+              skinId={player.cosmeticsEquipped?.skin}
+              fondId={player.cosmeticsEquipped?.['fond-avatar']}
+              pixelSize={8}
+            />
+            <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-forge-light bg-forge text-ash transition-colors group-hover:border-ember group-hover:text-ember">
+              <Pencil size={11} />
+            </span>
+          </button>
         </div>
+
+        <p className="mt-4 text-center font-display text-lg uppercase tracking-[0.25em] text-cream">
+          {lvl.title}
+        </p>
+        {equippedTitle && (
+          <p className="mt-1 text-center text-xs italic tracking-wider text-glow">
+            « {equippedTitle.name} »
+          </p>
+        )}
 
         <section className="mx-auto mt-10 max-w-md space-y-4">
           {/* Niveau */}
@@ -421,7 +410,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <FloatingBadges ownedIds={player.cosmeticsOwned} maxY={badgeMaxY} />
+      <FloatingBadges ownedIds={player.cosmeticsOwned} />
     </>
   )
 }

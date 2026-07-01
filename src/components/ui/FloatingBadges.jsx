@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { findCosmeticById } from '../../domain/cosmetics'
 
@@ -16,20 +16,27 @@ const RARITY_GLOW = {
   ascendant: 'shadow-[0_0_22px_-4px_rgba(245,240,232,0.35)]',
 }
 
-// Durée de dérive par badge (légèrement différente pour éviter la synchronisation)
-const DURATIONS = [6.5, 8.2, 7.1, 9.4, 7.8, 8.8]
+// Durées plus lentes, légèrement décalées pour éviter la synchronisation
+const DURATIONS = [10, 13, 11, 15, 12, 14]
 
-function BadgeBubble({ cosmetic, initialX, initialY, duration, maxY }) {
+function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
   const [target, setTarget] = useState({ x: initialX, y: initialY })
 
   const drift = useCallback(() => {
-    const margin = 60
-    const bottomBound = maxY > 0 ? maxY - 48 : window.innerHeight * 0.5
+    const margin = 56
+    // Contrainte mesurée au runtime : 48 % de la hauteur écran
+    // → toujours au-dessus de la barre d'XP quelle que soit la taille d'écran
+    const maxY = window.innerHeight * 0.48
     setTarget({
       x: margin + Math.random() * (window.innerWidth - margin * 2),
-      y: margin + Math.random() * Math.max(0, bottomBound - margin),
+      y: margin + Math.random() * Math.max(0, maxY - margin * 2),
     })
-  }, [maxY])
+  }, [])
+
+  // Démarrer immédiatement au montage (pas d'attente du premier cycle)
+  useEffect(() => {
+    drift()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <motion.div
@@ -57,7 +64,7 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration, maxY }) {
   )
 }
 
-export default function FloatingBadges({ ownedIds, maxY = 0 }) {
+export default function FloatingBadges({ ownedIds }) {
   const badges = (ownedIds ?? [])
     .map((id) => findCosmeticById(id))
     .filter((c) => c?.type === 'badge')
@@ -65,17 +72,16 @@ export default function FloatingBadges({ ownedIds, maxY = 0 }) {
   if (badges.length === 0) return null
 
   const vw = typeof window !== 'undefined' ? window.innerWidth  : 390
-  // Zone initiale : autour de l'avatar (centre de la moitié haute)
-  const zoneMidY = maxY > 0 ? maxY / 2 : 220
+  const avatarCenterY = typeof window !== 'undefined' ? window.innerHeight * 0.28 : 235
 
   return (
     <>
       {badges.map((badge, i) => {
-        // Positions initiales réparties en cercle autour du centre avatar
+        // Positions initiales en cercle autour de l'avatar
         const angle = (i / badges.length) * Math.PI * 2 - Math.PI / 2
-        const r = Math.min(vw, zoneMidY) * 0.35
+        const r = Math.min(vw * 0.38, avatarCenterY * 0.7)
         const initialX = vw / 2 + Math.cos(angle) * r - 24
-        const initialY = zoneMidY + Math.sin(angle) * r - 24
+        const initialY = avatarCenterY + Math.sin(angle) * r - 24
 
         return (
           <BadgeBubble
@@ -84,7 +90,6 @@ export default function FloatingBadges({ ownedIds, maxY = 0 }) {
             initialX={initialX}
             initialY={initialY}
             duration={DURATIONS[i % DURATIONS.length]}
-            maxY={maxY}
           />
         )
       })}
