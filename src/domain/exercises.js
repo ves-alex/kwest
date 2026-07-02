@@ -76,7 +76,6 @@ export const EXERCISES = [
   { id: 'leg-raises', name: 'Leg raises', group: 'core', equipment: 'poids-du-corps' },
   { id: 'russian-twist', name: 'Russian twist', group: 'core', equipment: 'poids-du-corps' },
   { id: 'chaise', name: 'Chaise (wall sit)', group: 'core', equipment: 'poids-du-corps' },
-  { id: 'gainage-lateral', name: 'Gainage latéral', group: 'core', equipment: 'poids-du-corps' },
   { id: 'mountain-climbers', name: 'Mountain climbers', group: 'core', equipment: 'poids-du-corps' },
 
   // Cardio — reps = durée (minutes ou secondes selon l'exo), weight = résistance/allure
@@ -152,7 +151,6 @@ const BODYWEIGHT_FACTORS = {
   'extensions-mollets-assis': 0.5,
   // Core (timer)
   'chaise': 1,            // 1 rune/seconde
-  'gainage-lateral': 1,
   'mountain-climbers': 1.2,
   // Cardio (runes/minute)
   'rameur': 5,
