@@ -588,12 +588,6 @@ export default function Stats() {
                       </div>
                     </div>
                   )}
-                  <div className="mt-5 border-t border-forge-light/40 pt-4">
-                    <p className="mb-3 text-[9px] uppercase tracking-[0.25em] text-ash/50">
-                      Fréquence · 8 semaines
-                    </p>
-                    <TrainingHeatmap trainedSet={exerciseTrainedSet} numWeeks={8} />
-                  </div>
                 </>
               ) : (
                 <p className="mt-3 text-xs text-ash/60">
