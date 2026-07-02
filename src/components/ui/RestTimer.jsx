@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Play, Pause, SkipForward, Plus, Minus } from 'lucide-react'
 
 const PRESETS = [
@@ -7,6 +7,15 @@ const PRESETS = [
   { label: '2 min', seconds: 120 },
   { label: '3 min', seconds: 180 },
 ]
+
+const STORAGE_KEY = 'kwest:rest-duration'
+
+function loadLastDuration() {
+  try { return parseInt(localStorage.getItem(STORAGE_KEY), 10) || 90 } catch { return 90 }
+}
+function saveLastDuration(d) {
+  try { localStorage.setItem(STORAGE_KEY, String(d)) } catch {}
+}
 
 function fmt(s) {
   const m = Math.floor(s / 60)
@@ -22,31 +31,58 @@ function StateLabel({ running, remaining, duration }) {
 }
 
 export default function RestTimer({ isOpen, onClose, autoStart = false }) {
-  const [duration, setDuration] = useState(90)
-  const [remaining, setRemaining] = useState(90)
+  const [duration, setDuration] = useState(loadLastDuration)
+  const [remaining, setRemaining] = useState(() => loadLastDuration())
   const [running, setRunning] = useState(false)
   const [flashing, setFlashing] = useState(false)
   const [customInput, setCustomInput] = useState('')
+  const [autoCloseIn, setAutoCloseIn] = useState(null)
+
   const intervalRef = useRef(null)
-  const initializedRef = useRef(false)
+  const autoCloseRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  const clearAutoClose = useCallback(() => {
+    if (autoCloseRef.current) {
+      clearInterval(autoCloseRef.current)
+      autoCloseRef.current = null
+    }
+    setAutoCloseIn(null)
+  }, [])
+
+  const startAutoClose = useCallback(() => {
+    let n = 5
+    setAutoCloseIn(n)
+    autoCloseRef.current = setInterval(() => {
+      n -= 1
+      if (n <= 0) {
+        clearInterval(autoCloseRef.current)
+        autoCloseRef.current = null
+        setAutoCloseIn(null)
+        onCloseRef.current()
+      } else {
+        setAutoCloseIn(n)
+      }
+    }, 1000)
+  }, [])
 
   // Reset + autoStart quand on ouvre
   useEffect(() => {
     if (isOpen) {
-      setRemaining(duration)
+      const d = loadLastDuration()
+      setDuration(d)
+      setRemaining(d)
       setFlashing(false)
       setCustomInput('')
-      initializedRef.current = true
-      if (autoStart) {
-        setRunning(true)
-      } else {
-        setRunning(false)
-      }
+      clearAutoClose()
+      setRunning(autoStart)
     } else {
+      clearInterval(intervalRef.current)
       setRunning(false)
-      initializedRef.current = false
+      clearAutoClose()
     }
-  }, [isOpen])
+  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown
   useEffect(() => {
@@ -62,25 +98,31 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
           setFlashing(true)
           navigator.vibrate?.([300, 100, 300])
           setTimeout(() => setFlashing(false), 1000)
+          startAutoClose()
           return 0
         }
         return r - 1
       })
     }, 1000)
     return () => clearInterval(intervalRef.current)
-  }, [running])
+  }, [running, startAutoClose])
 
   const selectPreset = (seconds) => {
     setDuration(seconds)
     setRemaining(seconds)
     setRunning(false)
     setCustomInput('')
+    clearAutoClose()
+    saveLastDuration(seconds)
   }
 
   const adjustTime = (delta) => {
-    const next = Math.max(5, duration + delta)
-    setDuration(next)
-    setRemaining((r) => Math.max(0, r + delta))
+    setDuration((d) => {
+      const next = Math.max(5, d + delta)
+      saveLastDuration(next)
+      return next
+    })
+    setRemaining((r) => Math.max(5, r + delta))
   }
 
   const applyCustom = () => {
@@ -91,6 +133,12 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
   const handleSkip = () => {
     clearInterval(intervalRef.current)
     setRunning(false)
+    clearAutoClose()
+    onClose()
+  }
+
+  const handleClose = () => {
+    clearAutoClose()
     onClose()
   }
 
@@ -104,7 +152,7 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-charcoal/80 backdrop-blur-sm"
-        onClick={isDone ? onClose : undefined}
+        onClick={isDone ? handleClose : undefined}
         aria-hidden
       />
 
@@ -130,7 +178,7 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="text-ash transition-colors hover:text-cream"
             aria-label="Fermer"
           >
@@ -145,11 +193,13 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
               Repos terminé
             </p>
             <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-ash">
-              reprends la forge
+              {autoCloseIn !== null
+                ? `fermeture dans ${autoCloseIn}s`
+                : 'reprends la forge'}
             </p>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="mt-6 inline-flex w-full items-center justify-center rounded-md border border-ember bg-forge px-4 py-2.5 text-xs uppercase tracking-[0.25em] text-cream transition-colors hover:bg-ember/20"
             >
               Retour à la forge
