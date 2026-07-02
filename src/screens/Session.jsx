@@ -169,6 +169,23 @@ export default function Session() {
         0
       )
     )
+    const exerciseSummary = finished.entries
+      .map((e) => {
+        const validSets = e.sets.filter((s) => parseFloat(s.reps) > 0)
+        if (validSets.length === 0) return null
+        const best = validSets.reduce((b, s) => {
+          const vol = (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0)
+          const bvol = (parseFloat(b.reps) || 0) * (parseFloat(b.weight) || 0)
+          return vol >= bvol ? s : b
+        }, validSets[0])
+        return {
+          exerciseId: e.exerciseId,
+          sets: validSets.length,
+          bestReps: best.reps,
+          bestWeight: parseFloat(best.weight) || 0,
+        }
+      })
+      .filter(Boolean)
 
     const oldPlayer = loadPlayer()
     const oldLevel = computeLevel(oldPlayer.totalXp)
@@ -201,6 +218,7 @@ export default function Session() {
       totalExos,
       totalSets,
       totalVolume,
+      exerciseSummary,
       exerciseIds: finished.entries.map((e) => e.exerciseId),
     })
   }
@@ -317,15 +335,37 @@ export default function Session() {
 
         {!recap.isTimerOnly && recap.totalSets > 0 && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.58 }}
-            className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-ash"
+            className={`mt-5 grid w-full max-w-xs gap-2 ${recap.totalVolume > 0 ? 'grid-cols-2' : 'grid-cols-3'}`}
           >
-            {recap.totalExos > 0 && <span>{recap.totalExos} exercice{recap.totalExos > 1 ? 's' : ''}</span>}
-            <span>{recap.totalSets} série{recap.totalSets > 1 ? 's' : ''}</span>
-            {recap.totalVolume > 0 && <span>{recap.totalVolume} kg</span>}
-            <span>{recap.durationMin} min</span>
+            {recap.totalExos > 0 && (
+              <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Exercices</p>
+                <p className="mt-1 font-display text-3xl text-cream">{recap.totalExos}</p>
+              </div>
+            )}
+            <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
+              <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Séries</p>
+              <p className="mt-1 font-display text-3xl text-cream">{recap.totalSets}</p>
+            </div>
+            {recap.totalVolume > 0 && (
+              <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Volume</p>
+                <p className="mt-1 font-display text-3xl text-cream">
+                  {recap.totalVolume}
+                  <span className="ml-1 font-sans text-base text-ash">kg</span>
+                </p>
+              </div>
+            )}
+            <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
+              <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Durée</p>
+              <p className="mt-1 font-display text-3xl text-cream">
+                {recap.durationMin}
+                <span className="ml-1 font-sans text-base text-ash">min</span>
+              </p>
+            </div>
           </motion.div>
         )}
         {recap.isTimerOnly && (
@@ -389,11 +429,42 @@ export default function Session() {
           </div>
         )}
 
+        {recap.exerciseSummary?.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: recap.newBadges?.length ? 0.92 + recap.newBadges.length * 0.12 : 0.86 }}
+            className="mt-6 w-full max-w-xs text-left"
+          >
+            <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash">Détail</p>
+            <div className="space-y-1">
+              {recap.exerciseSummary.map((e) => {
+                const exo = findExerciseById(e.exerciseId)
+                if (!exo) return null
+                return (
+                  <div
+                    key={e.exerciseId}
+                    className="flex items-center justify-between rounded-lg border border-forge-light bg-forge px-3 py-2"
+                  >
+                    <p className="truncate text-xs text-cream">{exo.name}</p>
+                    <p className="ml-3 shrink-0 font-mono text-[10px] text-ash">
+                      {e.bestWeight > 0
+                        ? `${e.bestWeight} kg × ${e.bestReps}`
+                        : `${e.bestReps} reps`}
+                      {' · '}{e.sets}×
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+
         {!recap.isTimerOnly && (recap.exerciseIds?.length ?? 0) > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: recap.newBadges?.length ? 0.9 + recap.newBadges.length * 0.12 : 0.84 }}
+            transition={{ delay: recap.newBadges?.length ? 1.04 + recap.newBadges.length * 0.12 : 0.98 }}
             className="mt-8 w-full max-w-xs"
           >
             {saveRoutineState === 'saved' ? (
