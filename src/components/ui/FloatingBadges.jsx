@@ -24,10 +24,20 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration, zoneW, zoneH }) {
   const drift = useCallback(() => {
     const margin = 16
     const bubble = 48
-    setTarget({
-      x: margin + Math.random() * Math.max(0, zoneW - bubble - margin * 2),
-      y: margin + Math.random() * Math.max(0, zoneH - bubble - margin * 2),
-    })
+    // Centre approximatif de l'avatar dans le cadre
+    const avoidCx = zoneW / 2
+    const avoidCy = zoneH * 0.55
+    const avoidR = 95  // rayon d'exclusion autour du personnage
+
+    let x, y
+    for (let i = 0; i < 30; i++) {
+      x = margin + Math.random() * Math.max(0, zoneW - bubble - margin * 2)
+      y = margin + Math.random() * Math.max(0, zoneH - bubble - margin * 2)
+      const dx = (x + bubble / 2) - avoidCx
+      const dy = (y + bubble / 2) - avoidCy
+      if (Math.sqrt(dx * dx + dy * dy) >= avoidR) break
+    }
+    setTarget({ x, y })
   }, [zoneW, zoneH])
 
   useEffect(() => {
