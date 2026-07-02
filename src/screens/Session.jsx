@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked, Pencil, ListPlus } from 'lucide-react'
+import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked, ListPlus } from 'lucide-react'
 import {
   loadActiveSession,
   saveActiveSession,
@@ -15,54 +14,18 @@ import {
   removeSetFromEntry,
   getLastPerformance,
   getPersonalRecord,
-  updateSessionRpe,
 } from '../storage/sessions'
 import { loadPlayer, savePlayer } from '../storage/player'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
-import { evaluateBadges, findBadgeById } from '../domain/badges'
+import { evaluateBadges } from '../domain/badges'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import RestTimer from '../components/ui/RestTimer'
 import ConfirmModal from '../components/ui/ConfirmModal'
-import { loadRoutines, saveRoutine, deleteRoutine, buildRoutine } from '../storage/routines'
-
-function CountUp({ to, delay = 0, duration = 1.2 }) {
-  const [value, setValue] = useState(0)
-  useEffect(() => {
-    if (!to) return
-    const timer = setTimeout(() => {
-      const start = performance.now()
-      const tick = (now) => {
-        const t = Math.min((now - start) / (duration * 1000), 1)
-        setValue(Math.round((1 - Math.pow(2, -10 * t)) * to))
-        if (t < 1) requestAnimationFrame(tick)
-        else setValue(to)
-      }
-      requestAnimationFrame(tick)
-    }, delay * 1000)
-    return () => clearTimeout(timer)
-  }, [to, delay, duration])
-  return value
-}
-
-function formatStartedAt(iso) {
-  const d = new Date(iso)
-  return d.toLocaleString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatElapsed(s) {
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-  return `${m}:${String(sec).padStart(2, '0')}`
-}
+import { loadRoutines } from '../storage/routines'
+import { formatStartedAt, formatElapsed } from '../lib/format'
+import SessionRecap from './session/SessionRecap'
+import RoutinePicker from './session/RoutinePicker'
 
 export default function Session() {
   const [active, setActive] = useState(loadActiveSession)
@@ -76,11 +39,6 @@ export default function Session() {
   const [historySessions] = useState(() => loadSessions())
   const [routinePickerOpen, setRoutinePickerOpen] = useState(false)
   const [routines, setRoutines] = useState(loadRoutines)
-  const [saveRoutineState, setSaveRoutineState] = useState('idle') // 'idle' | 'editing' | 'saved'
-  const [routineName, setRoutineName] = useState('')
-  const [pendingDeleteRoutineId, setPendingDeleteRoutineId] = useState(null)
-  const [editingRoutineId, setEditingRoutineId] = useState(null)
-  const [editingRoutineName, setEditingRoutineName] = useState('')
 
   const exercisePerfs = useMemo(() => {
     if (!active) return {}
@@ -111,9 +69,7 @@ export default function Session() {
     setActive(s)
   }
 
-  const handleCancel = () => {
-    setShowCancelConfirm(true)
-  }
+  const handleCancel = () => setShowCancelConfirm(true)
 
   const confirmCancel = () => {
     clearActiveSession()
@@ -121,9 +77,7 @@ export default function Session() {
     setShowCancelConfirm(false)
   }
 
-  const handleRemoveEntry = (index) => {
-    setActive(removeEntryFromActiveSession(index))
-  }
+  const handleRemoveEntry = (index) => setActive(removeEntryFromActiveSession(index))
 
   const handleAddSet = (entryIndex) => {
     const entry = active.entries[entryIndex]
@@ -149,9 +103,7 @@ export default function Session() {
     }
   }
 
-  const handleFinish = () => {
-    setShowFinishConfirm(true)
-  }
+  const handleFinish = () => setShowFinishConfirm(true)
 
   const confirmFinish = () => {
     setShowFinishConfirm(false)
@@ -159,7 +111,6 @@ export default function Session() {
     const isTimerOnly = finished.entries.length === 0
     const durationMin = (new Date(finished.endedAt) - new Date(finished.startedAt)) / 60000
 
-    // Séance trop courte sans exercice = abandonnée
     if (isTimerOnly && durationMin < 5) {
       clearActiveSession()
       setActive(null)
@@ -243,11 +194,7 @@ export default function Session() {
     })
   }
 
-  const handleCloseRecap = () => {
-    setRecap(null)
-    setSaveRoutineState('idle')
-    setRoutineName('')
-  }
+  const handleCloseRecap = () => setRecap(null)
 
   const handleStartFromRoutine = (routine) => {
     const s = createSession()
@@ -257,374 +204,15 @@ export default function Session() {
     setRoutinePickerOpen(false)
   }
 
-  const confirmDeleteRoutine = () => {
-    if (!pendingDeleteRoutineId) return
-    deleteRoutine(pendingDeleteRoutineId)
-    setRoutines(loadRoutines())
-    setPendingDeleteRoutineId(null)
-  }
-
-  const handleRenameRoutine = (id, newName) => {
-    const r = routines.find((rt) => rt.id === id)
-    if (!r) return
-    saveRoutine({ ...r, name: newName.trim() || r.name })
-    setRoutines(loadRoutines())
-    setEditingRoutineId(null)
-    setEditingRoutineName('')
-  }
-
-  const handleOpenSaveRoutine = () => {
-    const defaultName = (recap.exerciseIds ?? [])
-      .slice(0, 2)
-      .map((id) => findExerciseById(id)?.name ?? id)
-      .join(' + ')
-      .slice(0, 40)
-    setRoutineName(defaultName)
-    setSaveRoutineState('editing')
-  }
-
-  const handleSaveRoutine = () => {
-    const exoIds = recap.exerciseIds ?? []
-    if (exoIds.length === 0) return
-    const r = buildRoutine(routineName.trim() || 'Ma routine', exoIds)
-    saveRoutine(r)
-    setRoutines(loadRoutines())
-    setSaveRoutineState('saved')
-  }
-
-  // --- Écran récap abandonné ---
-  if (recap?.abandoned) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center"
-      >
-        <p className="text-[10px] uppercase tracking-[0.4em] text-ash">séance abandonnée</p>
-        <p className="mt-6 font-display text-3xl uppercase tracking-[0.1em] text-ash">Trop courte</p>
-        <p className="mt-4 max-w-xs text-sm leading-relaxed text-ash/70">
-          Moins de 5 min sans exercice. Aucune rune forgée.
-        </p>
-        <button
-          type="button"
-          onClick={handleCloseRecap}
-          className="mt-10 inline-flex items-center gap-2 rounded-md border border-forge-light bg-transparent px-8 py-3 text-sm uppercase tracking-[0.25em] text-ash transition-colors hover:border-ash hover:text-cream"
-        >
-          Fermer
-        </button>
-      </motion.div>
-    )
-  }
-
-  // --- Écran récap normal ---
+  // --- Écran récap (normal ou abandonné) ---
   if (recap) {
     return (
-      <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="text-[10px] uppercase tracking-[0.4em] text-ash"
-        >
-          {recap.isTimerOnly ? 'séance libre forgée' : 'séance forgée'}
-        </motion.p>
-
-        <motion.div
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.08, type: 'spring', stiffness: 280, damping: 20 }}
-          className="mt-6 flex h-16 w-16 items-center justify-center rounded-full border border-ember bg-forge"
-        >
-          <Anvil size={28} className="text-ember" />
-        </motion.div>
-
-        <motion.p
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.24, duration: 0.45, ease: [0.25, 0, 0, 1] }}
-          className="mt-8 font-display text-5xl tracking-wider text-ember"
-        >
-          +<CountUp to={recap.runes} delay={0.24} /> {RUNE_SYMBOL}
-        </motion.p>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.38 }}
-          className="mt-1 text-xs uppercase tracking-[0.3em] text-cream"
-        >
-          runes d'effort
-        </motion.p>
-
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.48, duration: 0.35, ease: [0.25, 0, 0, 1] }}
-          className="mt-6 font-display text-2xl tracking-wider text-cream"
-        >
-          +<CountUp to={recap.xp} delay={0.48} /> XP
-        </motion.p>
-
-        {(() => {
-          const newLvl = computeLevel(recap.newXp)
-          if (!newLvl.nextThreshold) return null
-          const range = newLvl.nextThreshold - newLvl.currentMin
-          const oldPct = Math.max(0, Math.min(1, (recap.oldXp - newLvl.currentMin) / range))
-          const newPct = newLvl.progress
-          return (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="mt-4 w-full max-w-xs"
-            >
-              <div className="flex items-baseline justify-between text-[9px] uppercase tracking-[0.25em] text-ash/60">
-                <span>Niveau {newLvl.level}</span>
-                <span className="font-mono">
-                  {recap.newXp} / {newLvl.nextThreshold}
-                </span>
-              </div>
-              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-charcoal">
-                <motion.div
-                  initial={{ width: `${oldPct * 100}%` }}
-                  animate={{ width: `${newPct * 100}%` }}
-                  transition={{ delay: 0.9, duration: 1, ease: [0.25, 0, 0, 1] }}
-                  className="h-full bg-ember"
-                />
-              </div>
-            </motion.div>
-          )
-        })()}
-
-        {!recap.isTimerOnly && recap.totalSets > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.58 }}
-            className={`mt-5 grid w-full max-w-xs gap-2 ${recap.totalVolume > 0 ? 'grid-cols-2' : 'grid-cols-3'}`}
-          >
-            {recap.totalExos > 0 && (
-              <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Exercices</p>
-                <p className="mt-1 font-display text-3xl text-cream">{recap.totalExos}</p>
-              </div>
-            )}
-            <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Séries</p>
-              <p className="mt-1 font-display text-3xl text-cream">{recap.totalSets}</p>
-            </div>
-            {recap.totalVolume > 0 && (
-              <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Volume</p>
-                <p className="mt-1 font-display text-3xl text-cream">
-                  {recap.totalVolume}
-                  <span className="ml-1 font-sans text-base text-ash">kg</span>
-                </p>
-              </div>
-            )}
-            <div className="rounded-xl border border-forge-light bg-forge px-3 py-2.5 text-left">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Durée</p>
-              <p className="mt-1 font-display text-3xl text-cream">
-                {recap.durationMin}
-                <span className="ml-1 font-sans text-base text-ash">min</span>
-              </p>
-            </div>
-          </motion.div>
-        )}
-        {recap.isTimerOnly && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.58 }}
-            className="mt-2 text-[10px] uppercase tracking-[0.3em] text-ash"
-          >
-            {recap.durationMin} min · séance sans exercices
-          </motion.p>
-        )}
-
-        {recap.levelUp && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.68, type: 'spring', stiffness: 240, damping: 24 }}
-            className="mt-8 w-full max-w-xs rounded-xl border border-ember bg-forge p-4 shadow-[0_0_32px_-8px_rgba(124,45,18,0.7)]"
-          >
-            <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Nouveau palier</p>
-            <p className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
-              {recap.newTitle}
-            </p>
-            <p className="mt-1 text-xs text-ash">Niveau {recap.newLevel}</p>
-          </motion.div>
-        )}
-
-        {recap.newBadges?.length > 0 && (
-          <div className="mt-6 w-full max-w-xs space-y-2">
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.75 }}
-              className="text-center text-[10px] uppercase tracking-[0.3em] text-ash"
-            >
-              {recap.newBadges.length === 1 ? 'Badge débloqué' : `${recap.newBadges.length} badges débloqués`}
-            </motion.p>
-            {recap.newBadges.map((id, i) => {
-              const b = findBadgeById(id)
-              if (!b) return null
-              const Icon = b.Icon
-              return (
-                <motion.div
-                  key={id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.82 + i * 0.12, duration: 0.35 }}
-                  className="flex items-center gap-3 rounded-xl border border-glow bg-forge p-3 text-left"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-glow bg-charcoal">
-                    <Icon size={18} className="text-glow" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-cream">{b.name}</p>
-                    <p className="text-[10px] text-ash">{b.description}</p>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        )}
-
-        {recap.exerciseSummary?.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: recap.newBadges?.length ? 0.92 + recap.newBadges.length * 0.12 : 0.86 }}
-            className="mt-6 w-full max-w-xs text-left"
-          >
-            <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash">Détail</p>
-            <div className="space-y-1">
-              {recap.exerciseSummary.map((e) => {
-                const exo = findExerciseById(e.exerciseId)
-                if (!exo) return null
-                return (
-                  <div
-                    key={e.exerciseId}
-                    className="flex items-center justify-between rounded-lg border border-forge-light bg-forge px-3 py-2"
-                  >
-                    <p className="truncate text-xs text-cream">{exo.name}</p>
-                    <p className="ml-3 shrink-0 font-mono text-[10px] text-ash">
-                      {e.bestWeight > 0
-                        ? `${e.bestWeight} kg × ${e.bestReps}`
-                        : `${e.bestReps} reps`}
-                      {' · '}{e.sets}×
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-
-        {!recap.isTimerOnly && (recap.exerciseIds?.length ?? 0) > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: recap.newBadges?.length ? 1.04 + recap.newBadges.length * 0.12 : 0.98 }}
-            className="mt-8 w-full max-w-xs"
-          >
-            {saveRoutineState === 'saved' ? (
-              <p className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em] text-glow">
-                <Check size={11} />
-                Routine enregistrée
-              </p>
-            ) : saveRoutineState === 'editing' ? (
-              <div className="rounded-xl border border-forge-light bg-forge p-3">
-                <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash">Nom de la routine</p>
-                <input
-                  type="text"
-                  value={routineName}
-                  onChange={(e) => setRoutineName(e.target.value)}
-                  placeholder="Ma routine"
-                  className="w-full rounded-md border border-forge-light bg-charcoal px-3 py-2 text-sm text-cream placeholder:text-ash/50 focus:border-ember focus:outline-none"
-                  autoFocus
-                />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveRoutine}
-                    className="flex-1 rounded-md border border-ember bg-transparent py-1.5 text-[10px] uppercase tracking-[0.2em] text-cream transition-colors hover:bg-ember/15"
-                  >
-                    Enregistrer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSaveRoutineState('idle')}
-                    className="rounded-md border border-forge-light px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleOpenSaveRoutine}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-forge-light bg-transparent py-2.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60 hover:text-cream"
-              >
-                <BookMarked size={12} />
-                Garder comme routine
-              </button>
-            )}
-          </motion.div>
-        )}
-
-        {!recap.isTimerOnly && recap.totalSets > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: recap.newBadges?.length ? 1.16 + recap.newBadges.length * 0.12 : 1.1 }}
-            className="mt-8 w-full max-w-xs"
-          >
-            <p className="text-center text-[10px] uppercase tracking-[0.3em] text-ash">
-              Comment tu te sens ?
-            </p>
-            <div className="mt-3 flex justify-between gap-1.5">
-              {[
-                { v: 1, label: 'Facile' },
-                { v: 2, label: 'Modéré' },
-                { v: 3, label: 'Dur' },
-                { v: 4, label: 'Très dur' },
-                { v: 5, label: 'Limite' },
-              ].map(({ v, label }) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => {
-                    updateSessionRpe(recap.sessionId, v)
-                    setRecap((prev) => ({ ...prev, rpe: v }))
-                  }}
-                  className={`flex-1 rounded-md border px-1 py-2 text-[9px] uppercase tracking-[0.1em] transition-colors ${
-                    recap.rpe === v
-                      ? 'border-ember bg-ember/15 text-cream'
-                      : 'border-forge-light bg-transparent text-ash hover:border-ash/60'
-                  }`}
-                  aria-pressed={recap.rpe === v}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: recap.newBadges?.length ? 0.82 + recap.newBadges.length * 0.12 : 0.78 }}
-          onClick={handleCloseRecap}
-          className="mt-6 inline-flex items-center gap-2 rounded-md border border-ember bg-forge px-8 py-3 text-sm uppercase tracking-[0.25em] text-cream transition-all hover:bg-ember/20 hover:shadow-[0_0_24px_-8px_rgba(146,64,14,0.8)] active:scale-95"
-        >
-          Continuer
-        </motion.button>
-      </div>
+      <SessionRecap
+        recap={recap}
+        setRecap={setRecap}
+        onClose={handleCloseRecap}
+        onRoutinesChange={setRoutines}
+      />
     )
   }
 
@@ -667,117 +255,12 @@ export default function Session() {
           </Link>
         </div>
 
-        {/* Routine picker — bottom sheet */}
-        <AnimatePresence>
-          {routinePickerOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-charcoal/80 backdrop-blur-sm"
-              onClick={() => setRoutinePickerOpen(false)}
-            >
-              <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', stiffness: 360, damping: 36 }}
-                className="absolute inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto rounded-t-3xl border-t border-forge-light bg-forge px-6 pb-16 pt-6"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="mb-5 flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Mes routines</p>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to="/routines/new"
-                      onClick={() => setRoutinePickerOpen(false)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
-                      aria-label="Créer une routine"
-                    >
-                      <Plus size={13} />
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setRoutinePickerOpen(false)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
-                      aria-label="Fermer"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                </div>
-                <ul className="space-y-2">
-                  {routines.map((r) => (
-                    <li key={r.id} className="flex items-center gap-3">
-                      {editingRoutineId === r.id ? (
-                        <input
-                          type="text"
-                          autoFocus
-                          value={editingRoutineName}
-                          onChange={(e) => setEditingRoutineName(e.target.value)}
-                          onBlur={() => handleRenameRoutine(r.id, editingRoutineName)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameRoutine(r.id, editingRoutineName)
-                            if (e.key === 'Escape') { setEditingRoutineId(null); setEditingRoutineName('') }
-                          }}
-                          className="flex-1 rounded-xl border border-ember bg-charcoal/40 px-4 py-3 text-sm text-cream focus:outline-none"
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleStartFromRoutine(r)}
-                          className="flex min-w-0 flex-1 flex-col rounded-xl border border-forge-light bg-charcoal/40 px-4 py-3 text-left transition-colors hover:border-ember"
-                        >
-                          <p className="text-sm font-medium text-cream">{r.name}</p>
-                          <p className="mt-0.5 text-[10px] text-ash/60">
-                            {r.exerciseIds.length} exercice{r.exerciseIds.length > 1 ? 's' : ''}
-                            {' · '}
-                            {r.exerciseIds
-                              .slice(0, 2)
-                              .map((id) => findExerciseById(id)?.name ?? id)
-                              .join(', ')}
-                            {r.exerciseIds.length > 2 ? '…' : ''}
-                          </p>
-                        </button>
-                      )}
-                      {editingRoutineId !== r.id && (
-                        <button
-                          type="button"
-                          onClick={() => { setEditingRoutineId(r.id); setEditingRoutineName(r.name) }}
-                          className="shrink-0 text-ash/40 transition-colors hover:text-cream"
-                          aria-label={`Renommer ${r.name}`}
-                        >
-                          <Pencil size={13} />
-                        </button>
-                      )}
-                      {editingRoutineId !== r.id && (
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteRoutineId(r.id)}
-                          className="shrink-0 text-ash/40 transition-colors hover:text-ember"
-                          aria-label={`Supprimer ${r.name}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <ConfirmModal
-          isOpen={!!pendingDeleteRoutineId}
-          title="Supprimer cette routine ?"
-          message="Cette routine sera définitivement supprimée."
-          confirmLabel="Supprimer"
-          cancelLabel="Annuler"
-          danger
-          onConfirm={confirmDeleteRoutine}
-          onCancel={() => setPendingDeleteRoutineId(null)}
+        <RoutinePicker
+          isOpen={routinePickerOpen}
+          routines={routines}
+          onClose={() => setRoutinePickerOpen(false)}
+          onStart={handleStartFromRoutine}
+          onChange={setRoutines}
         />
       </>
     )
@@ -815,7 +298,6 @@ export default function Session() {
           const exo = findExerciseById(entry.exerciseId)
           const lastPerf = exercisePerfs[entry.exerciseId]?.lastPerf ?? null
           const pr = exercisePerfs[entry.exerciseId]?.pr ?? null
-          // Meilleur poids saisi cette séance (tous sets, validés ou non — hint temps réel)
           const currentBest = entry.sets.reduce((max, s) => {
             const w = parseFloat(s.weight) || 0
             return w > max ? w : max
@@ -874,76 +356,76 @@ export default function Session() {
                       ((parseFloat(set.weight) || 0) > pr.weight ||
                        ((parseFloat(set.weight) || 0) === pr.weight && (parseFloat(set.reps) || 0) > pr.reps))
                     return (
-                    <li
-                      key={setIndex}
-                      className={`flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors ${
-                        set.validated ? 'bg-glow/8' : isNewPR ? 'bg-ember/8' : ''
-                      }`}
-                    >
-                      <span className="w-4 shrink-0 text-center font-mono text-xs text-ash">
-                        {setIndex + 1}
-                      </span>
-
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={set.reps}
-                        onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: e.target.value })}
-                        placeholder="reps"
-                        className={`w-16 rounded-md border px-2 py-1.5 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
-                          set.validated
-                            ? 'border-forge-light/50 bg-charcoal/50 text-ash'
-                            : 'border-forge-light bg-charcoal text-cream'
+                      <li
+                        key={setIndex}
+                        className={`flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors ${
+                          set.validated ? 'bg-glow/8' : isNewPR ? 'bg-ember/8' : ''
                         }`}
-                      />
-                      <span className="text-xs text-ash">×</span>
-                      <div className="relative flex-1">
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-xs text-ash">
+                          {setIndex + 1}
+                        </span>
+
                         <input
                           type="text"
-                          inputMode="decimal"
-                          pattern="[0-9]*\.?[0-9]*"
-                          value={set.weight}
-                          onChange={(e) => handleUpdateSet(entryIndex, setIndex, { weight: e.target.value })}
-                          placeholder="poids"
-                          className={`w-full rounded-md border px-2 py-1.5 pr-8 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={set.reps}
+                          onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: e.target.value })}
+                          placeholder="reps"
+                          className={`w-16 rounded-md border px-2 py-1.5 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
                             set.validated
                               ? 'border-forge-light/50 bg-charcoal/50 text-ash'
                               : 'border-forge-light bg-charcoal text-cream'
                           }`}
                         />
-                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ash">
-                          kg
-                        </span>
-                      </div>
-                      {isNewPR && (
-                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-ember">
-                          PR
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleValidateSet(entryIndex, setIndex)}
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                          set.validated
-                            ? 'border-glow bg-glow/20 text-glow'
-                            : 'border-forge-light bg-charcoal text-ash hover:border-glow hover:text-glow'
-                        }`}
-                        aria-label={set.validated ? 'Dévalider la série' : 'Valider la série'}
-                      >
-                        <Check size={14} strokeWidth={set.validated ? 2.5 : 1.5} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSet(entryIndex, setIndex)}
-                        className="text-ash transition-colors hover:text-ember"
-                        aria-label={`Supprimer la série ${setIndex + 1}`}
-                      >
-                        <X size={14} />
-                      </button>
-                    </li>
-                  )})}
-
+                        <span className="text-xs text-ash">×</span>
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9]*\.?[0-9]*"
+                            value={set.weight}
+                            onChange={(e) => handleUpdateSet(entryIndex, setIndex, { weight: e.target.value })}
+                            placeholder="poids"
+                            className={`w-full rounded-md border px-2 py-1.5 pr-8 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
+                              set.validated
+                                ? 'border-forge-light/50 bg-charcoal/50 text-ash'
+                                : 'border-forge-light bg-charcoal text-cream'
+                            }`}
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ash">
+                            kg
+                          </span>
+                        </div>
+                        {isNewPR && (
+                          <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-ember">
+                            PR
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleValidateSet(entryIndex, setIndex)}
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                            set.validated
+                              ? 'border-glow bg-glow/20 text-glow'
+                              : 'border-forge-light bg-charcoal text-ash hover:border-glow hover:text-glow'
+                          }`}
+                          aria-label={set.validated ? 'Dévalider la série' : 'Valider la série'}
+                        >
+                          <Check size={14} strokeWidth={set.validated ? 2.5 : 1.5} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSet(entryIndex, setIndex)}
+                          className="text-ash transition-colors hover:text-ember"
+                          aria-label={`Supprimer la série ${setIndex + 1}`}
+                        >
+                          <X size={14} />
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
 
