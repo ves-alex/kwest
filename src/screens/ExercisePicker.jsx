@@ -18,11 +18,14 @@ function normalize(s) {
 export default function ExercisePicker() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [recents] = useState(() =>
-    getRecentExercises()
-      .map((id) => findExerciseById(id))
-      .filter(Boolean)
-  )
+  const [recents, setRecents] = useState([])
+  useEffect(() => {
+    setRecents(
+      getRecentExercises()
+        .map((id) => findExerciseById(id))
+        .filter(Boolean)
+    )
+  }, [])
 
   useEffect(() => {
     if (!loadActiveSession()) {

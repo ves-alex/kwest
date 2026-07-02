@@ -1,4 +1,4 @@
-import { Droplet, Hammer, Sunrise, TrendingUp, Zap } from 'lucide-react'
+import { Droplet, Hammer, Sunrise, TrendingUp, Zap, Calendar, Mountain, Target, ShoppingBag, Timer, Coins } from 'lucide-react'
 
 const DAY_MS = 86400000
 
@@ -95,6 +95,95 @@ export const BADGES = [
       }
       return false
     },
+  },
+  {
+    id: 'semaine-apres-semaine',
+    name: 'Semaine après semaine',
+    description: '4 semaines consécutives avec au moins une séance.',
+    Icon: Calendar,
+    condition: (_player, sessions) => {
+      const weekSet = new Set()
+      for (const s of sessions) {
+        const d = new Date(s.startedAt)
+        const monday = new Date(d)
+        monday.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1))
+        monday.setHours(0, 0, 0, 0)
+        weekSet.add(monday.getTime())
+      }
+      const weeks = [...weekSet].sort((a, b) => a - b)
+      let streak = 1
+      for (let i = 1; i < weeks.length; i++) {
+        if (weeks[i] - weeks[i - 1] === 7 * DAY_MS) {
+          streak++
+          if (streak >= 4) return true
+        } else {
+          streak = 1
+        }
+      }
+      return false
+    },
+  },
+  {
+    id: 'dix-mille-kilos',
+    name: 'Dix mille kilos',
+    description: '10 000 kg soulevés au total, toutes séances confondues.',
+    Icon: Mountain,
+    condition: (_player, sessions) => {
+      let total = 0
+      for (const s of sessions) {
+        for (const e of s.entries) {
+          for (const set of e.sets) {
+            total += (parseFloat(set.reps) || 0) * (parseFloat(set.weight) || 0)
+            if (total >= 10000) return true
+          }
+        }
+      }
+      return false
+    },
+  },
+  {
+    id: 'lobsede',
+    name: "L'Obsédé",
+    description: '20 séances différentes contenant le même exercice.',
+    Icon: Target,
+    condition: (_player, sessions) => {
+      const counts = {}
+      for (const s of sessions) {
+        const seen = new Set()
+        for (const e of s.entries) {
+          if (!seen.has(e.exerciseId)) {
+            counts[e.exerciseId] = (counts[e.exerciseId] ?? 0) + 1
+            if (counts[e.exerciseId] >= 20) return true
+            seen.add(e.exerciseId)
+          }
+        }
+      }
+      return false
+    },
+  },
+  {
+    id: 'premier-or-forge',
+    name: 'Premier or forgé',
+    description: "Acheter un cosmétique à l'Atelier.",
+    Icon: ShoppingBag,
+    condition: (player) => (player.cosmeticsOwned ?? []).length > 1,
+  },
+  {
+    id: 'lendurant',
+    name: "L'Endurant",
+    description: "Terminer une séance d'au moins 60 minutes.",
+    Icon: Timer,
+    condition: (_player, sessions) =>
+      sessions.some(
+        (s) => s.endedAt && new Date(s.endedAt) - new Date(s.startedAt) >= 60 * 60000
+      ),
+  },
+  {
+    id: 'tresor-de-la-forge',
+    name: 'Trésor de la Forge',
+    description: '1 000 runes gagnées au total.',
+    Icon: Coins,
+    condition: (player) => (player.totalRunes ?? 0) >= 1000,
   },
 ]
 

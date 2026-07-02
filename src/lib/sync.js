@@ -1,19 +1,22 @@
 import { supabase } from './supabase'
+import { PLAYER_KEY, SESSIONS_KEY } from '../storage/keys'
 
-const PLAYER_KEY = 'kwest:player'
-const SESSIONS_KEY = 'kwest:sessions'
+let pushSyncTimer = null
 
-// Pousse localStorage → Supabase sans bloquer l'appelant
-export async function pushSync() {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
-  try {
-    const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
-    const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
-    await saveToCloud(session.user.id, player, sessions)
-  } catch (err) {
-    console.error('[kwest] pushSync failed', err)
-  }
+// Pousse localStorage → Supabase, debounce 2s pour éviter un appel réseau par action UI
+export function pushSync() {
+  clearTimeout(pushSyncTimer)
+  pushSyncTimer = setTimeout(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    try {
+      const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
+      const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
+      await saveToCloud(session.user.id, player, sessions)
+    } catch (err) {
+      console.error('[kwest] pushSync failed', err)
+    }
+  }, 2000)
 }
 
 // Charge les données depuis Supabase et les écrit dans localStorage
@@ -50,26 +53,4 @@ export async function saveToCloud(userId, player, sessions) {
     .upsert({ id: userId, player, sessions, updated_at: new Date().toISOString() })
 
   if (error) console.error('[kwest] saveToCloud failed', error)
-}
-
-// Appelé après chaque savePlayer() — lit localStorage et pousse vers Supabase
-export async function syncPlayer(userId) {
-  try {
-    const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
-    const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
-    await saveToCloud(userId, player, sessions)
-  } catch (err) {
-    console.error('[kwest] syncPlayer failed', err)
-  }
-}
-
-// Appelé après saveSession() — même chose
-export async function syncSessions(userId) {
-  try {
-    const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
-    const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
-    await saveToCloud(userId, player, sessions)
-  } catch (err) {
-    console.error('[kwest] syncSessions failed', err)
-  }
 }

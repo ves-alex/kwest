@@ -205,22 +205,6 @@ export default function Stats() {
 
   // --- Stats globales ---
   const globalStats = useMemo(() => {
-    const totalVolume = Math.round(
-      sessions.reduce(
-        (t, s) =>
-          t +
-          s.entries.reduce(
-            (te, e) =>
-              te +
-              e.sets.reduce(
-                (acc, set) => acc + (parseFloat(set.reps) || 0) * (parseFloat(set.weight) || 0),
-                0
-              ),
-            0
-          ),
-        0
-      )
-    )
     const withEnd = sessions.filter((s) => s.endedAt)
     const avgDuration =
       withEnd.length > 0
@@ -231,18 +215,11 @@ export default function Stats() {
             ) / withEnd.length
           )
         : 0
-    return { totalVolume, avgDuration }
+    return { avgDuration }
   }, [sessions])
 
   // --- Volume + séances par semaine (6 semaines) ---
   const weeklyStats = useMemo(() => {
-    const getMonday = (d) => {
-      const day = d.getDay()
-      const m = new Date(d)
-      m.setDate(m.getDate() - day + (day === 0 ? -6 : 1))
-      m.setHours(0, 0, 0, 0)
-      return m
-    }
     const thisMonday = getMonday(new Date())
     const weeks = Array.from({ length: 6 }, (_, i) => {
       const start = new Date(thisMonday)
@@ -370,7 +347,6 @@ export default function Stats() {
         <h1 className="mt-4 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
           Chroniques
         </h1>
-        {sessions.length > 0 && (
           <div className="mt-6 flex justify-center gap-1">
             {[
               { id: 'sessions', label: 'Séances' },
@@ -391,17 +367,17 @@ export default function Stats() {
               </button>
             ))}
           </div>
-        )}
       </header>
 
       <section className="mx-auto mt-8 max-w-md">
-        {sessions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-forge-light bg-forge/40 p-8 text-center">
-            <p className="text-sm text-ash">
-              Ton historique est vide. Termine une séance et elle s'inscrira ici.
-            </p>
-          </div>
-        ) : view === 'sessions' ? (
+        {view === 'sessions' ? (
+          sessions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-forge-light bg-forge/40 p-8 text-center">
+              <p className="text-sm text-ash">
+                Ton historique est vide. Termine une séance et elle s'inscrira ici.
+              </p>
+            </div>
+          ) : (
           <>
             <p className="mb-4 text-center text-[10px] uppercase tracking-[0.3em] text-ash/60">
               ← glisse pour supprimer
@@ -460,7 +436,15 @@ export default function Stats() {
               </AnimatePresence>
             </ul>
           </>
+          )
         ) : view === 'stats' ? (
+          sessions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-forge-light bg-forge/40 p-8 text-center">
+              <p className="text-sm text-ash">
+                Termine ta première séance pour voir tes statistiques.
+              </p>
+            </div>
+          ) : (
           /* --- Vue stats globales --- */
           <div className="space-y-4">
             {/* Heatmap */}
@@ -569,6 +553,13 @@ export default function Stats() {
                 })()}
               </div>
             )}
+          </div>
+          )
+        ) : sessions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-forge-light bg-forge/40 p-8 text-center">
+            <p className="text-sm text-ash">
+              Tes exercices et ta progression apparaîtront ici après ta première séance.
+            </p>
           </div>
         ) : selectedExoId ? (
           /* --- Vue progression d'un exercice --- */

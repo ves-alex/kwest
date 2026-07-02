@@ -149,7 +149,7 @@ export default function Shop() {
   const confirmBuy = () => {
     if (!pendingBuy) return
     const next = buyCosmetic(pendingBuy.id, pendingBuy.price, pendingBuy.type)
-    if (next) setPlayer(next)
+    setPlayer(next ?? loadPlayer())
     setPendingBuy(null)
   }
 
