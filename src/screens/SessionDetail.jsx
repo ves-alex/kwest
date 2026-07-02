@@ -5,6 +5,7 @@ import { findSession, deleteSession } from '../storage/sessions'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import ConfirmModal from '../components/ui/ConfirmModal'
+import { formatDuration } from '../lib/format'
 
 function formatLong(iso) {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -15,16 +16,6 @@ function formatLong(iso) {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function formatDuration(startISO, endISO) {
-  if (!endISO) return '—'
-  const mins = Math.round((new Date(endISO) - new Date(startISO)) / 60000)
-  if (mins < 1) return '< 1 min'
-  if (mins < 60) return `${mins} min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m === 0 ? `${h} h` : `${h} h ${m}`
 }
 
 export default function SessionDetail() {

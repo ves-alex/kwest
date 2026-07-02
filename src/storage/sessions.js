@@ -1,5 +1,6 @@
 import { pushSync } from '../lib/sync'
 import { SESSIONS_KEY as STORAGE_KEY, ACTIVE_KEY, RECENTS_KEY } from './keys'
+import { genId } from '../lib/id'
 
 // Migration idempotente : les sessions terminées AVANT l'activation de la validation
 // stricte ont des sets avec `validated: false` (défaut hérité du sprint UX). On les
@@ -80,18 +81,9 @@ export function updateSessionRpe(id, rpe) {
   return writeAll(sessions)
 }
 
-// crypto.randomUUID() requires a secure context (HTTPS or localhost).
-// Fallback when serving via LAN IP in HTTP (e.g. testing on iPhone).
-function genId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 export function createSession() {
   return {
-    id: genId(),
+    id: genId('s'),
     startedAt: new Date().toISOString(),
     endedAt: null,
     entries: [],

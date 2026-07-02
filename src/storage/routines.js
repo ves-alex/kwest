@@ -1,11 +1,6 @@
-const KEY = 'kwest:routines'
+import { genId } from '../lib/id'
 
-function genId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `r-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
+const KEY = 'kwest:routines'
 
 export function loadRoutines() {
   try {
@@ -39,7 +34,7 @@ export function deleteRoutine(id) {
 
 export function buildRoutine(name, exerciseIds) {
   return {
-    id: genId(),
+    id: genId('r'),
     name,
     exerciseIds,
     createdAt: new Date().toISOString(),

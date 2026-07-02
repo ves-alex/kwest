@@ -1,20 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { findCosmeticById } from '../../domain/cosmetics'
-
-const RARITY_BORDER = {
-  brut:      'border-forge-light/70',
-  forge:     'border-ember/80',
-  eveille:   'border-glow/80',
-  ascendant: 'border-cream/60',
-}
-
-const RARITY_GLOW = {
-  brut:      '',
-  forge:     'shadow-[0_0_14px_-4px_rgba(124,45,18,0.7)]',
-  eveille:   'shadow-[0_0_18px_-4px_rgba(146,64,14,0.8)]',
-  ascendant: 'shadow-[0_0_22px_-4px_rgba(245,240,232,0.35)]',
-}
+import { RARITY_BORDER, RARITY_GLOW } from '../../theme/rarity'
 
 const DURATIONS = [10, 13, 11, 15, 12, 14]
 
