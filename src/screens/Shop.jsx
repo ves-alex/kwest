@@ -14,27 +14,39 @@ import { RUNE_SYMBOL } from '../domain/economy'
 
 const RARITY_STYLES = {
   brut: {
-    border: 'border-forge-light',
+    border: 'border-ash/40',
     glow: '',
-    stripe: 'bg-ash/40',
+    headerBg: 'bg-ash/5',
+    headerBorder: 'border-ash/20',
+    text: 'text-ash',
+    symbol: '◇',
     badge: 'bg-ash/15 text-ash',
   },
   forge: {
-    border: 'border-ember/60',
-    glow: 'shadow-[0_0_20px_-10px_rgba(124,45,18,0.9)]',
-    stripe: 'bg-ember',
+    border: 'border-ember',
+    glow: 'shadow-[0_0_20px_-6px_rgba(124,45,18,0.9)]',
+    headerBg: 'bg-ember/10',
+    headerBorder: 'border-ember/40',
+    text: 'text-ember',
+    symbol: '◈',
     badge: 'bg-ember/20 text-ember',
   },
   eveille: {
-    border: 'border-glow/70',
-    glow: 'shadow-[0_0_24px_-8px_rgba(146,64,14,0.7)]',
-    stripe: 'bg-gradient-to-r from-glow to-ember',
+    border: 'border-glow',
+    glow: 'shadow-[0_0_26px_-4px_rgba(146,64,14,0.85)]',
+    headerBg: 'bg-glow/10',
+    headerBorder: 'border-glow/40',
+    text: 'text-glow',
+    symbol: '✦',
     badge: 'bg-glow/20 text-glow',
   },
   ascendant: {
-    border: 'border-cream/50',
-    glow: 'shadow-[0_0_32px_-6px_rgba(245,240,232,0.25)]',
-    stripe: 'bg-gradient-to-r from-cream via-glow to-ember',
+    border: 'border-cream/70',
+    glow: 'shadow-[0_0_32px_-4px_rgba(245,240,232,0.4)]',
+    headerBg: 'bg-cream/10',
+    headerBorder: 'border-cream/30',
+    text: 'text-cream',
+    symbol: '✧',
     badge: 'bg-cream/15 text-cream',
   },
 }
@@ -193,42 +205,49 @@ export default function Shop() {
                       key={c.id}
                       type="button"
                       onClick={() => setSelectedItem(c)}
-                      className={`relative w-[132px] shrink-0 overflow-hidden rounded-2xl border bg-forge text-left transition-all active:scale-95 ${
-                        isEquipped
-                          ? 'border-glow'
-                          : isOwned
-                          ? 'border-forge-light/80'
-                          : style.border
+                      className={`relative w-[136px] shrink-0 overflow-hidden rounded-2xl border-2 bg-forge text-left transition-all active:scale-95 ${
+                        isEquipped ? 'border-glow' : style.border
                       } ${!isOwned ? style.glow : ''}`}
                     >
-                      <div className={`h-0.5 w-full ${style.stripe}`} aria-hidden />
+                      {/* Bandeau rareté */}
+                      <div
+                        className={`flex items-center justify-center gap-1.5 border-b py-1.5 ${style.headerBg} ${style.headerBorder}`}
+                      >
+                        <span className={`text-[10px] leading-none ${style.text}`}>
+                          {style.symbol}
+                        </span>
+                        <span
+                          className={`text-[8px] font-medium uppercase tracking-[0.3em] ${style.text}`}
+                        >
+                          {rarity.label}
+                        </span>
+                      </div>
 
-                      <div className="flex min-h-[88px] flex-col items-center justify-center px-3 pt-3 pb-1.5">
+                      {/* Preview */}
+                      <div className="flex min-h-[96px] flex-col items-center justify-center px-3 pt-3 pb-2">
                         <ItemPreview c={c} player={player} size="sm" />
                       </div>
 
-                      <div className="px-3 pb-3">
-                        <p className="line-clamp-2 text-[11px] font-medium leading-tight text-cream">
+                      {/* Nom + prix / état */}
+                      <div className="border-t border-forge-light/40 px-3 py-2">
+                        <p className="line-clamp-2 min-h-[26px] text-[11px] font-medium leading-tight text-cream">
                           {c.name}
                         </p>
-                        <div className="mt-1.5 flex items-center justify-between gap-1">
-                          <span
-                            className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] uppercase tracking-[0.15em] ${style.badge}`}
-                          >
-                            {rarity.label}
-                          </span>
+                        <div className="mt-1.5">
                           {isEquipped ? (
-                            <span className="flex items-center gap-0.5 text-glow">
-                              <Check size={9} />
-                              <span className="text-[8px] uppercase tracking-[0.1em]">Équipé</span>
+                            <span className="flex items-center gap-1 text-glow">
+                              <Check size={10} strokeWidth={2.5} />
+                              <span className="text-[9px] font-medium uppercase tracking-[0.15em]">
+                                Équipé
+                              </span>
                             </span>
                           ) : isOwned ? (
-                            <span className="text-[8px] uppercase tracking-[0.1em] text-ash/50">
+                            <span className="text-[9px] uppercase tracking-[0.15em] text-ash/60">
                               Possédé
                             </span>
                           ) : (
-                            <span className="font-mono text-[10px] text-ember">
-                              {RUNE_SYMBOL}{c.price}
+                            <span className="font-mono text-[11px] font-medium text-ember">
+                              {RUNE_SYMBOL} {c.price}
                             </span>
                           )}
                         </div>
@@ -274,8 +293,9 @@ export default function Shop() {
                   <div className="mb-5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] ${style.badge}`}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] ${style.badge}`}
                       >
+                        <span className={`text-[11px] leading-none ${style.text}`}>{style.symbol}</span>
                         {rarity.label}
                       </span>
                       <span className="text-[9px] uppercase tracking-[0.2em] text-ash/50">
