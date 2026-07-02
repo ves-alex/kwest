@@ -18,7 +18,7 @@ function getMonday(d) {
   return m
 }
 
-function TrainingHeatmap({ trainedSet, numWeeks = 12 }) {
+function TrainingHeatmap({ trainedSet, numWeeks = 12, onDayClick, selectedDay }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -89,17 +89,17 @@ function TrainingHeatmap({ trainedSet, numWeeks = 12 }) {
                 const key = day.toISOString().slice(0, 10)
                 const isFuture = day > today
                 const trained = trainedSet.has(key)
+                const isSelected = selectedDay === key
                 return (
                   <div
                     key={di}
                     style={{ width: CELL, height: CELL, borderRadius: 2 }}
-                    className={
-                      isFuture
-                        ? 'bg-charcoal/20'
-                        : trained
-                        ? 'bg-ember'
-                        : 'bg-charcoal'
-                    }
+                    className={[
+                      isFuture ? 'bg-charcoal/20' : trained ? 'bg-ember' : 'bg-charcoal',
+                      trained && onDayClick ? 'cursor-pointer active:opacity-70' : '',
+                      isSelected ? 'ring-1 ring-cream ring-offset-1 ring-offset-forge' : '',
+                    ].join(' ')}
+                    onClick={() => trained && onDayClick?.(key)}
                   />
                 )
               })}
@@ -171,6 +171,7 @@ export default function Stats() {
   const [view, setView] = useState('sessions') // 'sessions' | 'progression'
   const [selectedExoId, setSelectedExoId] = useState(null)
   const [exoQuery, setExoQuery] = useState('')
+  const [selectedDay, setSelectedDay] = useState(null)
 
   const exercisesInHistory = useMemo(() => {
     const counts = {}
@@ -325,6 +326,26 @@ export default function Stats() {
     }
     return set
   }, [sessions, selectedExoId])
+
+  const dayPR = useMemo(() => {
+    if (!selectedDay || !selectedExoId) return null
+    let best = null
+    for (const s of sessions) {
+      const d = new Date(s.startedAt)
+      d.setHours(0, 0, 0, 0)
+      if (d.toISOString().slice(0, 10) !== selectedDay) continue
+      const entry = s.entries.find((e) => e.exerciseId === selectedExoId)
+      if (!entry) continue
+      for (const set of entry.sets) {
+        const w = parseFloat(set.weight) || 0
+        const r = parseFloat(set.reps) || 0
+        if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
+          best = { weight: w, reps: r }
+        }
+      }
+    }
+    return best
+  }, [sessions, selectedExoId, selectedDay])
 
   const handleDelete = (id) => {
     setPendingDeleteId(id)
@@ -554,7 +575,7 @@ export default function Stats() {
           <div>
             <button
               type="button"
-              onClick={() => setSelectedExoId(null)}
+              onClick={() => { setSelectedExoId(null); setSelectedDay(null) }}
               className="mb-4 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:text-cream"
             >
               <ArrowLeft size={12} />
@@ -600,7 +621,35 @@ export default function Stats() {
                 <p className="mb-3 text-[9px] uppercase tracking-[0.25em] text-ash/50">
                   Fréquence · 8 semaines
                 </p>
-                <TrainingHeatmap trainedSet={exerciseTrainedSet} numWeeks={8} />
+                <TrainingHeatmap
+                  trainedSet={exerciseTrainedSet}
+                  numWeeks={8}
+                  selectedDay={selectedDay}
+                  onDayClick={(key) => setSelectedDay((prev) => (prev === key ? null : key))}
+                />
+                {selectedDay && (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-forge-light/60 bg-charcoal px-3 py-2">
+                    <p className="text-[10px] text-ash">
+                      {(() => {
+                        const [y, m, d] = selectedDay.split('-').map(Number)
+                        return new Date(y, m - 1, d).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                      })()}
+                    </p>
+                    <span className="text-ash/30">·</span>
+                    {dayPR ? (
+                      <p className="text-sm font-medium text-ember">
+                        {dayPR.weight > 0
+                          ? `${dayPR.weight} kg × ${dayPR.reps}`
+                          : `${dayPR.reps} reps`}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-ash/50">aucun set enregistré</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -622,7 +671,7 @@ export default function Stats() {
                   <li key={id}>
                     <button
                       type="button"
-                      onClick={() => setSelectedExoId(id)}
+                      onClick={() => { setSelectedExoId(id); setSelectedDay(null) }}
                       className="flex w-full items-center justify-between rounded-2xl border border-forge-light bg-forge p-4 text-left transition-colors hover:border-ember"
                     >
                       <div>
