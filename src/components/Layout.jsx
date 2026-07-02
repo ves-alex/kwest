@@ -7,15 +7,13 @@ import BottomTabBar from './BottomTabBar'
 export default function Layout() {
   const location = useLocation()
   const outlet = useOutlet()
-  // Force re-render quand le PlayerState change (équipement, achat…)
-  const [, forceUpdate] = useState(0)
+  const [player, setPlayer] = useState(loadPlayer)
   useEffect(() => {
-    const handler = () => forceUpdate((v) => v + 1)
+    const handler = () => setPlayer(loadPlayer())
     window.addEventListener('kwest:player-change', handler)
     return () => window.removeEventListener('kwest:player-change', handler)
   }, [])
 
-  const player = loadPlayer()
   const fondId = player.cosmeticsEquipped?.fond
 
   return (

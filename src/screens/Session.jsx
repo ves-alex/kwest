@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked } from 'lucide-react'
+import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked, Pencil } from 'lucide-react'
 import {
   loadActiveSession,
   saveActiveSession,
@@ -16,15 +16,8 @@ import {
   getLastPerformance,
   getPersonalRecord,
 } from '../storage/sessions'
-import { loadPlayer, savePlayer, addRunes, addXp } from '../storage/player'
-import {
-  computeSessionRunes,
-  computeSessionXp,
-  computeTimerRunes,
-  computeTimerXp,
-  computeLevel,
-  RUNE_SYMBOL,
-} from '../domain/economy'
+import { loadPlayer, savePlayer } from '../storage/player'
+import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
 import { evaluateBadges, findBadgeById } from '../domain/badges'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
@@ -84,6 +77,23 @@ export default function Session() {
   const [routines, setRoutines] = useState(loadRoutines)
   const [saveRoutineState, setSaveRoutineState] = useState('idle') // 'idle' | 'editing' | 'saved'
   const [routineName, setRoutineName] = useState('')
+  const [pendingDeleteRoutineId, setPendingDeleteRoutineId] = useState(null)
+  const [editingRoutineId, setEditingRoutineId] = useState(null)
+  const [editingRoutineName, setEditingRoutineName] = useState('')
+
+  const exercisePerfs = useMemo(() => {
+    if (!active) return {}
+    const map = {}
+    for (const entry of active.entries) {
+      if (!map[entry.exerciseId]) {
+        map[entry.exerciseId] = {
+          lastPerf: getLastPerformance(entry.exerciseId, historySessions),
+          pr: getPersonalRecord(entry.exerciseId, historySessions),
+        }
+      }
+    }
+    return map
+  }, [active, historySessions])
 
   useEffect(() => {
     if (!active) { setElapsed(0); return }
@@ -156,22 +166,26 @@ export default function Session() {
       return
     }
 
-    const runes = isTimerOnly ? computeTimerRunes(durationMin) : computeSessionRunes(finished)
-    const xp = isTimerOnly ? computeTimerXp(durationMin) : computeSessionXp(finished)
-
-    const totalExos = finished.entries.length
-    const totalSets = finished.entries.reduce((acc, e) => acc + e.sets.length, 0)
+    const isCounted = (s) => s.validated !== false
+    const totalExos = finished.entries.filter((e) => e.sets.some(isCounted)).length
+    const totalSets = finished.entries.reduce(
+      (acc, e) => acc + e.sets.filter(isCounted).length,
+      0
+    )
     const totalVolume = Math.round(
       finished.entries.reduce(
         (total, e) =>
           total +
-          e.sets.reduce((acc, s) => acc + (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0), 0),
+          e.sets.reduce(
+            (acc, s) => (isCounted(s) ? acc + (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0) : acc),
+            0
+          ),
         0
       )
     )
     const exerciseSummary = finished.entries
       .map((e) => {
-        const validSets = e.sets.filter((s) => parseFloat(s.reps) > 0)
+        const validSets = e.sets.filter((s) => isCounted(s) && parseFloat(s.reps) > 0)
         if (validSets.length === 0) return null
         const best = validSets.reduce((b, s) => {
           const vol = (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0)
@@ -191,12 +205,13 @@ export default function Session() {
     const oldLevel = computeLevel(oldPlayer.totalXp)
     const oldBadges = new Set(oldPlayer.badgesUnlocked ?? [])
 
-    addRunes(runes)
-    addXp(xp)
+    // Écrire la session d'abord — loadPlayer() recalcule ensuite les totaux depuis les sessions
     saveSession(finished)
 
     const allSessions = loadSessions()
     const playerAfterGains = loadPlayer()
+    const runes = Math.max(0, playerAfterGains.totalRunes - oldPlayer.totalRunes)
+    const xp = Math.max(0, playerAfterGains.totalXp - oldPlayer.totalXp)
     const unlockedNow = evaluateBadges(playerAfterGains, allSessions)
     const justUnlocked = unlockedNow.filter((id) => !oldBadges.has(id))
     if (justUnlocked.length > 0) {
@@ -237,9 +252,20 @@ export default function Session() {
     setRoutinePickerOpen(false)
   }
 
-  const handleDeleteRoutine = (id) => {
-    deleteRoutine(id)
+  const confirmDeleteRoutine = () => {
+    if (!pendingDeleteRoutineId) return
+    deleteRoutine(pendingDeleteRoutineId)
     setRoutines(loadRoutines())
+    setPendingDeleteRoutineId(null)
+  }
+
+  const handleRenameRoutine = (id, newName) => {
+    const r = routines.find((rt) => rt.id === id)
+    if (!r) return
+    saveRoutine({ ...r, name: newName.trim() || r.name })
+    setRoutines(loadRoutines())
+    setEditingRoutineId(null)
+    setEditingRoutineName('')
   }
 
   const handleOpenSaveRoutine = () => {
@@ -592,30 +618,57 @@ export default function Session() {
                 <ul className="space-y-2">
                   {routines.map((r) => (
                     <li key={r.id} className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleStartFromRoutine(r)}
-                        className="flex min-w-0 flex-1 flex-col rounded-xl border border-forge-light bg-charcoal/40 px-4 py-3 text-left transition-colors hover:border-ember"
-                      >
-                        <p className="text-sm font-medium text-cream">{r.name}</p>
-                        <p className="mt-0.5 text-[10px] text-ash/60">
-                          {r.exerciseIds.length} exercice{r.exerciseIds.length > 1 ? 's' : ''}
-                          {' · '}
-                          {r.exerciseIds
-                            .slice(0, 2)
-                            .map((id) => findExerciseById(id)?.name ?? id)
-                            .join(', ')}
-                          {r.exerciseIds.length > 2 ? '…' : ''}
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRoutine(r.id)}
-                        className="shrink-0 text-ash/40 transition-colors hover:text-ember"
-                        aria-label={`Supprimer ${r.name}`}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {editingRoutineId === r.id ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingRoutineName}
+                          onChange={(e) => setEditingRoutineName(e.target.value)}
+                          onBlur={() => handleRenameRoutine(r.id, editingRoutineName)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameRoutine(r.id, editingRoutineName)
+                            if (e.key === 'Escape') { setEditingRoutineId(null); setEditingRoutineName('') }
+                          }}
+                          className="flex-1 rounded-xl border border-ember bg-charcoal/40 px-4 py-3 text-sm text-cream focus:outline-none"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleStartFromRoutine(r)}
+                          className="flex min-w-0 flex-1 flex-col rounded-xl border border-forge-light bg-charcoal/40 px-4 py-3 text-left transition-colors hover:border-ember"
+                        >
+                          <p className="text-sm font-medium text-cream">{r.name}</p>
+                          <p className="mt-0.5 text-[10px] text-ash/60">
+                            {r.exerciseIds.length} exercice{r.exerciseIds.length > 1 ? 's' : ''}
+                            {' · '}
+                            {r.exerciseIds
+                              .slice(0, 2)
+                              .map((id) => findExerciseById(id)?.name ?? id)
+                              .join(', ')}
+                            {r.exerciseIds.length > 2 ? '…' : ''}
+                          </p>
+                        </button>
+                      )}
+                      {editingRoutineId !== r.id && (
+                        <button
+                          type="button"
+                          onClick={() => { setEditingRoutineId(r.id); setEditingRoutineName(r.name) }}
+                          className="shrink-0 text-ash/40 transition-colors hover:text-cream"
+                          aria-label={`Renommer ${r.name}`}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
+                      {editingRoutineId !== r.id && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingDeleteRoutineId(r.id)}
+                          className="shrink-0 text-ash/40 transition-colors hover:text-ember"
+                          aria-label={`Supprimer ${r.name}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -623,6 +676,17 @@ export default function Session() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <ConfirmModal
+          isOpen={!!pendingDeleteRoutineId}
+          title="Supprimer cette routine ?"
+          message="Cette routine sera définitivement supprimée."
+          confirmLabel="Supprimer"
+          cancelLabel="Annuler"
+          danger
+          onConfirm={confirmDeleteRoutine}
+          onCancel={() => setPendingDeleteRoutineId(null)}
+        />
       </>
     )
   }
@@ -657,8 +721,8 @@ export default function Session() {
 
         {active.entries.map((entry, entryIndex) => {
           const exo = findExerciseById(entry.exerciseId)
-          const lastPerf = getLastPerformance(entry.exerciseId, historySessions)
-          const pr = getPersonalRecord(entry.exerciseId, historySessions)
+          const lastPerf = exercisePerfs[entry.exerciseId]?.lastPerf ?? null
+          const pr = exercisePerfs[entry.exerciseId]?.pr ?? null
           return (
             <article key={entryIndex} className="rounded-2xl border border-forge-light bg-forge p-4">
               <header className="flex items-start gap-3">
@@ -707,19 +771,9 @@ export default function Session() {
                         set.validated ? 'bg-glow/8' : isNewPR ? 'bg-ember/8' : ''
                       }`}
                     >
-                      {/* Numéro ou check */}
-                      <button
-                        type="button"
-                        onClick={() => handleValidateSet(entryIndex, setIndex)}
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-mono transition-colors ${
-                          set.validated
-                            ? 'bg-glow/20 text-glow'
-                            : 'bg-transparent text-ash hover:text-glow'
-                        }`}
-                        aria-label={set.validated ? 'Dévalider la série' : 'Valider la série'}
-                      >
-                        {set.validated ? <Check size={12} /> : setIndex + 1}
-                      </button>
+                      <span className="w-4 shrink-0 text-center font-mono text-xs text-ash">
+                        {setIndex + 1}
+                      </span>
 
                       <input
                         type="text"
@@ -758,6 +812,18 @@ export default function Session() {
                           PR
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleValidateSet(entryIndex, setIndex)}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                          set.validated
+                            ? 'border-glow bg-glow/20 text-glow'
+                            : 'border-forge-light bg-charcoal text-ash hover:border-glow hover:text-glow'
+                        }`}
+                        aria-label={set.validated ? 'Dévalider la série' : 'Valider la série'}
+                      >
+                        <Check size={14} strokeWidth={set.validated ? 2.5 : 1.5} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleRemoveSet(entryIndex, setIndex)}

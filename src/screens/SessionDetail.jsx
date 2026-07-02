@@ -4,6 +4,7 @@ import { ChevronLeft, Trash2 } from 'lucide-react'
 import { findSession, deleteSession } from '../storage/sessions'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 function formatLong(iso) {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -30,6 +31,7 @@ export default function SessionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [session] = useState(() => findSession(id))
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   if (!session) {
     return (
@@ -45,8 +47,7 @@ export default function SessionDetail() {
     )
   }
 
-  const handleDelete = () => {
-    if (!confirm('Supprimer définitivement cette séance ?')) return
+  const confirmDelete = () => {
     deleteSession(session.id)
     navigate('/stats', { replace: true })
   }
@@ -131,13 +132,24 @@ export default function SessionDetail() {
       <section className="mx-auto mt-10 flex max-w-md justify-center">
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           className="inline-flex items-center gap-2 rounded-md border border-forge-light bg-transparent px-4 py-2 text-xs uppercase tracking-[0.2em] text-ash transition-colors hover:border-ember hover:text-ember"
         >
           <Trash2 size={14} />
           Supprimer cette séance
         </button>
       </section>
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="Supprimer cette séance ?"
+        message="Cette action est irréversible. La séance sera retirée de tes chroniques."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   )
 }

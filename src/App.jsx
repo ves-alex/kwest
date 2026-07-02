@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { loadPlayer, initPlayerGender } from './storage/player'
+import { loadPlayer } from './storage/player'
+import { migrateSessionsStrictV1 } from './storage/sessions'
 import { supabase } from './lib/supabase'
 import { loadFromCloud } from './lib/sync'
 import Layout from './components/Layout'
@@ -13,34 +14,32 @@ import ExercisePicker from './screens/ExercisePicker'
 import Onboarding from './screens/Onboarding'
 import Login from './screens/Login'
 
-function getPlayer() {
-  const p = loadPlayer()
-  if (p.gender && !p.cosmeticsEquipped?.skin) {
-    const starter = p.gender === 'F' ? 'skin-f1' : 'skin-m1'
-    return initPlayerGender(p.gender, starter)
-  }
-  return p
-}
-
 function App() {
   const [authState, setAuthState] = useState('loading') // 'loading' | 'unauthenticated' | 'ready'
   const [player, setPlayer] = useState(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) {
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        if (!session) {
+          setAuthState('unauthenticated')
+          return
+        }
+        await loadFromCloud(session.user.id)
+        migrateSessionsStrictV1()
+        setPlayer(loadPlayer())
+        setAuthState('ready')
+      })
+      .catch((err) => {
+        console.error('[kwest] getSession failed', err)
         setAuthState('unauthenticated')
-        return
-      }
-      await loadFromCloud(session.user.id)
-      setPlayer(getPlayer())
-      setAuthState('ready')
-    })
+      })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         await loadFromCloud(session.user.id)
-        setPlayer(getPlayer())
+        migrateSessionsStrictV1()
+        setPlayer(loadPlayer())
         setAuthState('ready')
       }
       if (event === 'SIGNED_OUT') {

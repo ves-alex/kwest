@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Play, Pause, SkipForward, Plus, Minus } from 'lucide-react'
+import { REST_DURATION_KEY } from '../../storage/keys'
 
 const PRESETS = [
   { label: '1 min', seconds: 60 },
@@ -8,13 +9,11 @@ const PRESETS = [
   { label: '3 min', seconds: 180 },
 ]
 
-const STORAGE_KEY = 'kwest:rest-duration'
-
 function loadLastDuration() {
-  try { return parseInt(localStorage.getItem(STORAGE_KEY), 10) || 90 } catch { return 90 }
+  try { return parseInt(localStorage.getItem(REST_DURATION_KEY), 10) || 90 } catch { return 90 }
 }
 function saveLastDuration(d) {
-  try { localStorage.setItem(STORAGE_KEY, String(d)) } catch {}
+  try { localStorage.setItem(REST_DURATION_KEY, String(d)) } catch {}
 }
 
 function fmt(s) {
