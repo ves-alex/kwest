@@ -13,6 +13,18 @@
   --font-display: "Cinzel", "Cormorant Garamond", Georgia, serif;
 }
 
+/* Mode clair "parchemin" — palette sable, ember conservé pour les accents */
+html.theme-light {
+  --color-charcoal: #E8DFCE;    /* fond principal sable */
+  --color-forge: #DBCFB8;        /* surfaces / cartes */
+  --color-forge-light: #C8B99C;  /* bordures / surfaces élevées */
+  --color-cream: #2A2018;        /* texte principal brun foncé */
+  --color-ash: #6B5D4A;          /* texte muted sable-brun */
+  /* ember, glow inchangés — Alex veut les garder pour les écritures */
+
+  color-scheme: light;
+}
+
 html {
   color-scheme: dark;
   background-color: var(--color-charcoal);

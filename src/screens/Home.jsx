@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Pencil, X, LogOut, Flame } from 'lucide-react'
-import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic, setWeeklyGoal } from '../storage/player'
+import { Link } from 'react-router-dom'
+import { Pencil, X, Flame, Settings as SettingsIcon, Sun, Moon } from 'lucide-react'
+import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
 import { loadSessions } from '../storage/sessions'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
 import { computeWeeklyStats } from '../domain/streak'
-import { supabase } from '../lib/supabase'
+import { loadTheme, toggleTheme } from '../lib/theme'
 import {
   findCosmeticById,
   COSMETICS,
@@ -22,12 +23,13 @@ export default function Home() {
   const [player, setPlayer] = useState(loadPlayer)
   const [selectedBadge, setSelectedBadge] = useState(null)
   const [dressingOpen, setDressingOpen] = useState(false)
-  const [authUser, setAuthUser] = useState(null)
   const refugeFrameRef = useRef(null)
   const [frameDims, setFrameDims] = useState(null)
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
-  }, [])
+  const [theme, setThemeState] = useState(loadTheme)
+
+  const handleToggleTheme = () => {
+    setThemeState(toggleTheme())
+  }
   useEffect(() => {
     const el = refugeFrameRef.current
     if (!el) return
@@ -38,11 +40,6 @@ export default function Home() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-
-  async function handleLogout() {
-    const { error } = await supabase.auth.signOut()
-    if (!error) localStorage.clear()
-  }
 
   const balance = getBalance(player)
   const lvl = computeLevel(player.totalXp)
@@ -79,11 +76,48 @@ export default function Home() {
           ref={refugeFrameRef}
           className="relative overflow-hidden rounded-2xl border border-forge-light/60 bg-forge/30"
         >
-          {/* Coins ember décoratifs */}
+          {/* Coins ember décoratifs — 3 coins + engrenage/toggle groupés au 4e (haut-droite) */}
           <span className="pointer-events-none absolute left-3 top-3 h-6 w-6 rounded-tl border-l-2 border-t-2 border-ember/50" />
-          <span className="pointer-events-none absolute right-3 top-3 h-6 w-6 rounded-tr border-r-2 border-t-2 border-ember/50" />
           <span className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 rounded-bl border-b-2 border-l-2 border-ember/50" />
           <span className="pointer-events-none absolute bottom-3 right-3 h-6 w-6 rounded-br border-b-2 border-r-2 border-ember/50" />
+
+          {/* Arc ember dans le coin haut-droit, entourant le cluster engrenage + toggle */}
+          <svg
+            className="pointer-events-none absolute right-0 top-0 z-[3]"
+            width="170"
+            height="170"
+            viewBox="0 0 170 170"
+            aria-hidden
+          >
+            <path
+              d="M 30 0 Q 30 130 170 130"
+              fill="none"
+              stroke="rgb(124 45 18 / 0.5)"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <Link
+            to="/settings"
+            className="absolute right-3 top-3 z-[4] flex h-8 w-8 items-center justify-center rounded-full border border-ember/50 bg-charcoal/60 text-ash/80 transition-colors hover:border-ember hover:bg-charcoal hover:text-ember"
+            aria-label="Paramètres"
+          >
+            <SettingsIcon size={15} className="translate-y-[0.5px]" />
+          </Link>
+
+          <button
+            type="button"
+            onClick={handleToggleTheme}
+            className="absolute right-14 top-14 z-[4] flex h-8 w-8 items-center justify-center rounded-full border border-ember/50 bg-charcoal/60 text-ash/80 transition-colors hover:border-ember hover:bg-charcoal hover:text-ember"
+            aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+          >
+            {theme === 'dark' ? (
+              <Sun size={15} className="translate-y-[0.5px]" />
+            ) : (
+              <Moon size={15} className="translate-y-[0.5px]" />
+            )}
+          </button>
 
           <div className="px-6 pb-10 pt-10 text-center">
             <header>
@@ -164,26 +198,6 @@ export default function Home() {
                   record · {weekly.recordStreak}
                 </p>
               )}
-            </div>
-
-            <div className="mt-4 flex items-center gap-1.5">
-              <p className="text-[9px] uppercase tracking-[0.25em] text-ash/50">Objectif</p>
-              {[2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPlayer(setWeeklyGoal(n))}
-                  className={`h-6 w-6 rounded-full border text-[10px] font-mono transition-colors ${
-                    goal === n
-                      ? 'border-ember bg-ember/15 text-cream'
-                      : 'border-forge-light bg-transparent text-ash hover:border-ash/60'
-                  }`}
-                  aria-label={`Objectif ${n} séances par semaine`}
-                  aria-pressed={goal === n}
-                >
-                  {n}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -323,41 +337,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Profil + déconnexion */}
-        {authUser && (
-          <div className="mx-auto mt-6 max-w-md">
-            <div className="flex items-center justify-between rounded-2xl border border-forge-light bg-forge px-4 py-3">
-              <div className="flex items-center gap-3">
-                {authUser.user_metadata?.avatar_url ? (
-                  <img
-                    src={authUser.user_metadata.avatar_url}
-                    alt={authUser.user_metadata?.full_name ?? 'Photo de profil'}
-                    className="h-8 w-8 rounded-full border border-forge-light"
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-forge-light bg-charcoal text-xs text-ash">
-                    {authUser.email?.[0]?.toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-xs text-cream">
-                    {authUser.user_metadata?.full_name ?? authUser.email}
-                  </p>
-                  <p className="truncate text-[10px] text-ash/60">{authUser.email}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 rounded-md border border-forge-light px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ember hover:text-ember"
-                aria-label="Se déconnecter"
-              >
-                <LogOut size={11} />
-                Quitter
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Dressing — bottom sheet animé */}

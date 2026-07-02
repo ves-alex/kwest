@@ -13,6 +13,8 @@ import SessionDetail from './screens/SessionDetail'
 import ExercisePicker from './screens/ExercisePicker'
 import Onboarding from './screens/Onboarding'
 import Login from './screens/Login'
+import Settings from './screens/Settings'
+import RoutineComposer from './screens/RoutineComposer'
 
 function App() {
   const [authState, setAuthState] = useState('loading') // 'loading' | 'unauthenticated' | 'ready'
@@ -76,8 +78,10 @@ function App() {
           <Route path="shop" element={<Shop />} />
           <Route path="stats" element={<Stats />} />
           <Route path="stats/:id" element={<SessionDetail />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="session/picker" element={<ExercisePicker />} />
+        <Route path="routines/new" element={<RoutineComposer />} />
       </Routes>
     </BrowserRouter>
   )

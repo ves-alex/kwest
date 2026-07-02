@@ -54,3 +54,20 @@ export async function saveToCloud(userId, player, sessions) {
 
   if (error) console.error('[kwest] saveToCloud failed', error)
 }
+
+// Efface la progression cloud + local + déconnecte Google.
+// Note : Supabase ne permet pas de supprimer auth.users depuis le client (nécessite
+// une Edge Function avec service role). Se reconnecter avec le même Google recréera
+// un onboarding vierge (row user_data absente = comme un nouveau compte).
+export async function deleteAccount() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+  const userId = session.user.id
+  const { error } = await supabase.from('user_data').delete().eq('id', userId)
+  if (error) {
+    console.error('[kwest] deleteAccount failed', error)
+    throw error
+  }
+  localStorage.clear()
+  await supabase.auth.signOut()
+}

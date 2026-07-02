@@ -21,6 +21,13 @@ export function setWeeklyGoal(n) {
   return p
 }
 
+export function setGender(g) {
+  const p = loadPlayer()
+  p.gender = g
+  savePlayer(p)
+  return p
+}
+
 export function loadPlayer() {
   try {
     const raw = localStorage.getItem(PLAYER_KEY)

@@ -9,6 +9,9 @@ import '@fontsource/cinzel/600.css'
 
 import './index.css'
 import App from './App.jsx'
+import { initTheme } from './lib/theme'
+
+initTheme()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
