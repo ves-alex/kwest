@@ -16,24 +16,20 @@ const RARITY_GLOW = {
   ascendant: 'shadow-[0_0_22px_-4px_rgba(245,240,232,0.35)]',
 }
 
-// Durées plus lentes, légèrement décalées pour éviter la synchronisation
 const DURATIONS = [10, 13, 11, 15, 12, 14]
 
-function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
+function BadgeBubble({ cosmetic, initialX, initialY, duration, zoneW, zoneH }) {
   const [target, setTarget] = useState({ x: initialX, y: initialY })
 
   const drift = useCallback(() => {
-    const margin = 56
-    // Contrainte mesurée au runtime : 48 % de la hauteur écran
-    // → toujours au-dessus de la barre d'XP quelle que soit la taille d'écran
-    const maxY = window.innerHeight * 0.48
+    const margin = 20
+    const bubble = 48
     setTarget({
-      x: margin + Math.random() * (window.innerWidth - margin * 2),
-      y: margin + Math.random() * Math.max(0, maxY - margin * 2),
+      x: margin + Math.random() * Math.max(0, zoneW - bubble - margin * 2),
+      y: margin + Math.random() * Math.max(0, zoneH - bubble - margin * 2),
     })
-  }, [])
+  }, [zoneW, zoneH])
 
-  // Démarrer immédiatement au montage (pas d'attente du premier cycle)
   useEffect(() => {
     drift()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -41,7 +37,7 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
   return (
     <motion.div
       className={[
-        'pointer-events-none fixed z-[3]',
+        'pointer-events-none absolute z-[3]',
         'flex h-12 w-12 items-center justify-center',
         'overflow-hidden rounded-full border-2',
         'bg-charcoal/75 backdrop-blur-[2px]',
@@ -68,24 +64,23 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
   )
 }
 
-export default function FloatingBadges({ ownedIds }) {
+export default function FloatingBadges({ ownedIds, zoneW, zoneH }) {
   const badges = (ownedIds ?? [])
     .map((id) => findCosmeticById(id))
     .filter((c) => c?.type === 'badge')
 
   if (badges.length === 0) return null
 
-  const vw = typeof window !== 'undefined' ? window.innerWidth  : 390
-  const avatarCenterY = typeof window !== 'undefined' ? window.innerHeight * 0.28 : 235
+  const centerX = zoneW / 2
+  const centerY = zoneH / 2
 
   return (
     <>
       {badges.map((badge, i) => {
-        // Positions initiales en cercle autour de l'avatar
         const angle = (i / badges.length) * Math.PI * 2 - Math.PI / 2
-        const r = Math.min(vw * 0.38, avatarCenterY * 0.7)
-        const initialX = vw / 2 + Math.cos(angle) * r - 24
-        const initialY = avatarCenterY + Math.sin(angle) * r - 24
+        const r = Math.min(zoneW * 0.32, zoneH * 0.32)
+        const initialX = centerX + Math.cos(angle) * r - 24
+        const initialY = centerY + Math.sin(angle) * r - 24
 
         return (
           <BadgeBubble
@@ -94,6 +89,8 @@ export default function FloatingBadges({ ownedIds }) {
             initialX={initialX}
             initialY={initialY}
             duration={DURATIONS[i % DURATIONS.length]}
+            zoneW={zoneW}
+            zoneH={zoneH}
           />
         )
       })}
