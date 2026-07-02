@@ -1,23 +1,45 @@
 import { pushSync } from '../lib/sync'
-
-const PLAYER_KEY = 'kwest:player'
+import { PLAYER_KEY, SESSIONS_KEY } from './keys'
+import { evaluateBadges } from '../domain/badges'
+import { recomputeTotalsFromSessions } from '../domain/economy'
 
 const DEFAULT_PLAYER = {
   gender: null,
   totalRunes: 0,
   runesSpent: 0,
   totalXp: 0,
+  weeklyGoal: 3,
   cosmeticsOwned: [],
   cosmeticsEquipped: {},
   badgesUnlocked: [],
 }
 
+export function setWeeklyGoal(n) {
+  const p = loadPlayer()
+  p.weeklyGoal = Math.max(1, Math.min(7, Math.floor(n)))
+  savePlayer(p)
+  return p
+}
+
 export function loadPlayer() {
   try {
     const raw = localStorage.getItem(PLAYER_KEY)
-    return raw
+    const player = raw
       ? { ...DEFAULT_PLAYER, ...JSON.parse(raw) }
       : { ...DEFAULT_PLAYER }
+
+    // Anti-triche faible : les totaux doivent coller à la somme des sessions.
+    // Si édition manuelle de localStorage → on réaligne sur la vérité sessions.
+    const sessionsRaw = localStorage.getItem(SESSIONS_KEY)
+    const sessions = sessionsRaw ? JSON.parse(sessionsRaw) : []
+    const { runes: expectedRunes, xp: expectedXp } = recomputeTotalsFromSessions(sessions)
+    if (player.totalRunes !== expectedRunes || player.totalXp !== expectedXp) {
+      player.totalRunes = expectedRunes
+      player.totalXp = expectedXp
+      localStorage.setItem(PLAYER_KEY, JSON.stringify(player))
+      pushSync() // push la correction au cloud
+    }
+    return player
   } catch (err) {
     console.error('[kwest] loadPlayer failed', err)
     return { ...DEFAULT_PLAYER }
@@ -32,9 +54,21 @@ function emitPlayerChange() {
   }
 }
 
-export function savePlayer(player) {
+export function savePlayer(player, { evalBadges = true } = {}) {
   try {
-    localStorage.setItem(PLAYER_KEY, JSON.stringify(player))
+    // Auto-évaluation des badges qui ne dépendent pas d'une nouvelle séance
+    // (achat de cosmétique, seuil de runes cumulées, etc.)
+    let toWrite = player
+    if (evalBadges) {
+      const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
+      const unlocked = evaluateBadges(player, sessions)
+      const current = new Set(player.badgesUnlocked ?? [])
+      const merged = Array.from(new Set([...current, ...unlocked]))
+      if (merged.length !== current.size) {
+        toWrite = { ...player, badgesUnlocked: merged }
+      }
+    }
+    localStorage.setItem(PLAYER_KEY, JSON.stringify(toWrite))
     emitPlayerChange()
     pushSync()
     return true
@@ -44,41 +78,8 @@ export function savePlayer(player) {
   }
 }
 
-export function addRunes(amount) {
-  const p = loadPlayer()
-  p.totalRunes += amount
-  savePlayer(p)
-  return p
-}
-
-export function addXp(amount) {
-  const p = loadPlayer()
-  p.totalXp += amount
-  savePlayer(p)
-  return p
-}
-
-export function spendRunes(amount) {
-  const p = loadPlayer()
-  if (getBalance(p) < amount) return null
-  p.runesSpent += amount
-  savePlayer(p)
-  return p
-}
-
 export function getBalance(player) {
   return player.totalRunes - player.runesSpent
-}
-
-export function resetPlayer() {
-  try {
-    localStorage.removeItem(PLAYER_KEY)
-    emitPlayerChange()
-    return true
-  } catch (err) {
-    console.error('[kwest] resetPlayer failed', err)
-    return false
-  }
 }
 
 // --- Cosmétiques ---

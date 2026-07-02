@@ -1,7 +1,35 @@
 import { pushSync } from '../lib/sync'
+import { SESSIONS_KEY as STORAGE_KEY, ACTIVE_KEY, RECENTS_KEY } from './keys'
 
-const STORAGE_KEY = 'kwest:sessions'
-const ACTIVE_KEY = 'kwest:active-session'
+// Migration idempotente : les sessions terminées AVANT l'activation de la validation
+// stricte ont des sets avec `validated: false` (défaut hérité du sprint UX). On les
+// remonte à `validated: true` pour préserver les runes déjà gagnées.
+// Idempotent : ré-appliquer ne change rien.
+export function migrateSessionsStrictV1() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const sessions = raw ? JSON.parse(raw) : []
+    let changed = 0
+    for (const s of sessions) {
+      if (!s.endedAt) continue
+      for (const entry of s.entries) {
+        for (const set of entry.sets) {
+          if (set.validated === false && parseFloat(set.reps) > 0) {
+            set.validated = true
+            changed++
+          }
+        }
+      }
+    }
+    if (changed > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+      pushSync() // push le patch au cloud pour ne pas re-migrer à chaque login
+      console.log(`[kwest] migrateSessionsStrictV1 : ${changed} sets remontés à validated:true`)
+    }
+  } catch (err) {
+    console.error('[kwest] migrateSessionsStrictV1 failed', err)
+  }
+}
 
 export function findSession(id) {
   return loadSessions().find((s) => s.id === id) ?? null
@@ -44,16 +72,6 @@ export function deleteSession(id) {
   return writeAll(sessions)
 }
 
-export function clearAll() {
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-    return true
-  } catch (err) {
-    console.error('[kwest] clearAll failed', err)
-    return false
-  }
-}
-
 // crypto.randomUUID() requires a secure context (HTTPS or localhost).
 // Fallback when serving via LAN IP in HTTP (e.g. testing on iPhone).
 function genId() {
@@ -69,7 +87,6 @@ export function createSession() {
     startedAt: new Date().toISOString(),
     endedAt: null,
     entries: [],
-    note: '',
   }
 }
 
@@ -182,7 +199,6 @@ export function getLastPerformance(exerciseId, sessions) {
 }
 
 // Exercices récents (max 5) pour le sélecteur
-const RECENTS_KEY = 'kwest:recent-exercises'
 const MAX_RECENTS = 5
 
 export function getRecentExercises() {
