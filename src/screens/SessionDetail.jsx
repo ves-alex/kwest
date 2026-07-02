@@ -78,6 +78,11 @@ export default function SessionDetail() {
           <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-ash">
             {session.entries.length} exercice{session.entries.length > 1 ? 's' : ''} · {totalSets} série{totalSets > 1 ? 's' : ''}
           </p>
+          {session.rpe && (
+            <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-ember/70">
+              Ressenti · {['', 'facile', 'modéré', 'dur', 'très dur', 'à la limite'][session.rpe]}
+            </p>
+          )}
         </div>
       </header>
 

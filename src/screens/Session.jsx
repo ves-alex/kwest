@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked, Pencil } from 'lucide-react'
+import { Flame, X, Plus, Trash2, Anvil, Check, BookMarked, Pencil, ListPlus } from 'lucide-react'
 import {
   loadActiveSession,
   saveActiveSession,
@@ -15,6 +15,7 @@ import {
   removeSetFromEntry,
   getLastPerformance,
   getPersonalRecord,
+  updateSessionRpe,
 } from '../storage/sessions'
 import { loadPlayer, savePlayer } from '../storage/player'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
@@ -222,11 +223,14 @@ export default function Session() {
     clearActiveSession()
     setActive(null)
     setRecap({
+      sessionId: finished.id,
       runes,
       xp,
       levelUp: newLevel.level > oldLevel.level,
       newLevel: newLevel.level,
       newTitle: newLevel.title,
+      oldXp: oldPlayer.totalXp,
+      newXp: playerAfterGains.totalXp,
       newBadges: justUnlocked,
       isTimerOnly,
       durationMin: Math.round(durationMin),
@@ -235,6 +239,7 @@ export default function Session() {
       totalVolume,
       exerciseSummary,
       exerciseIds: finished.entries.map((e) => e.exerciseId),
+      rpe: null,
     })
   }
 
@@ -358,6 +363,37 @@ export default function Session() {
         >
           +<CountUp to={recap.xp} delay={0.48} /> XP
         </motion.p>
+
+        {(() => {
+          const newLvl = computeLevel(recap.newXp)
+          if (!newLvl.nextThreshold) return null
+          const range = newLvl.nextThreshold - newLvl.currentMin
+          const oldPct = Math.max(0, Math.min(1, (recap.oldXp - newLvl.currentMin) / range))
+          const newPct = newLvl.progress
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="mt-4 w-full max-w-xs"
+            >
+              <div className="flex items-baseline justify-between text-[9px] uppercase tracking-[0.25em] text-ash/60">
+                <span>Niveau {newLvl.level}</span>
+                <span className="font-mono">
+                  {recap.newXp} / {newLvl.nextThreshold}
+                </span>
+              </div>
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-charcoal">
+                <motion.div
+                  initial={{ width: `${oldPct * 100}%` }}
+                  animate={{ width: `${newPct * 100}%` }}
+                  transition={{ delay: 0.9, duration: 1, ease: [0.25, 0, 0, 1] }}
+                  className="h-full bg-ember"
+                />
+              </div>
+            </motion.div>
+          )
+        })()}
 
         {!recap.isTimerOnly && recap.totalSets > 0 && (
           <motion.div
@@ -539,6 +575,45 @@ export default function Session() {
           </motion.div>
         )}
 
+        {!recap.isTimerOnly && recap.totalSets > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: recap.newBadges?.length ? 1.16 + recap.newBadges.length * 0.12 : 1.1 }}
+            className="mt-8 w-full max-w-xs"
+          >
+            <p className="text-center text-[10px] uppercase tracking-[0.3em] text-ash">
+              Comment tu te sens ?
+            </p>
+            <div className="mt-3 flex justify-between gap-1.5">
+              {[
+                { v: 1, label: 'Facile' },
+                { v: 2, label: 'Modéré' },
+                { v: 3, label: 'Dur' },
+                { v: 4, label: 'Très dur' },
+                { v: 5, label: 'Limite' },
+              ].map(({ v, label }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    updateSessionRpe(recap.sessionId, v)
+                    setRecap((prev) => ({ ...prev, rpe: v }))
+                  }}
+                  className={`flex-1 rounded-md border px-1 py-2 text-[9px] uppercase tracking-[0.1em] transition-colors ${
+                    recap.rpe === v
+                      ? 'border-ember bg-ember/15 text-cream'
+                      : 'border-forge-light bg-transparent text-ash hover:border-ash/60'
+                  }`}
+                  aria-pressed={recap.rpe === v}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         <motion.button
           type="button"
           initial={{ opacity: 0, y: 10 }}
@@ -583,6 +658,13 @@ export default function Session() {
               Depuis une routine
             </button>
           )}
+          <Link
+            to="/routines/new"
+            className="mt-2 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-ash/60 transition-colors hover:text-cream"
+          >
+            <ListPlus size={12} />
+            {routines.length === 0 ? 'Créer ta première routine' : 'Créer une nouvelle routine'}
+          </Link>
         </div>
 
         {/* Routine picker — bottom sheet */}
@@ -606,14 +688,24 @@ export default function Session() {
               >
                 <div className="mb-5 flex items-center justify-between">
                   <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Mes routines</p>
-                  <button
-                    type="button"
-                    onClick={() => setRoutinePickerOpen(false)}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
-                    aria-label="Fermer"
-                  >
-                    <X size={13} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to="/routines/new"
+                      onClick={() => setRoutinePickerOpen(false)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
+                      aria-label="Créer une routine"
+                    >
+                      <Plus size={13} />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setRoutinePickerOpen(false)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
+                      aria-label="Fermer"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 </div>
                 <ul className="space-y-2">
                   {routines.map((r) => (
@@ -723,6 +815,18 @@ export default function Session() {
           const exo = findExerciseById(entry.exerciseId)
           const lastPerf = exercisePerfs[entry.exerciseId]?.lastPerf ?? null
           const pr = exercisePerfs[entry.exerciseId]?.pr ?? null
+          // Meilleur poids saisi cette séance (tous sets, validés ou non — hint temps réel)
+          const currentBest = entry.sets.reduce((max, s) => {
+            const w = parseFloat(s.weight) || 0
+            return w > max ? w : max
+          }, 0)
+          let prHint = null
+          if (pr && currentBest > 0) {
+            const diff = pr.weight - currentBest
+            if (diff > 0) prHint = `à ${diff}kg`
+            else if (diff === 0) prHint = 'à égaler'
+            else prHint = `+${-diff}kg !`
+          }
           return (
             <article key={entryIndex} className="rounded-2xl border border-forge-light bg-forge p-4">
               <header className="flex items-start gap-3">
@@ -743,6 +847,11 @@ export default function Session() {
                     {pr && (
                       <p className="text-[10px] text-ember/70">
                         PR · {pr.weight}kg × {pr.reps}
+                        {prHint && (
+                          <span className={prHint.startsWith('+') ? 'ml-1 font-medium text-glow' : 'ml-1 text-ember/50'}>
+                            · {prHint}
+                          </span>
+                        )}
                       </p>
                     )}
                   </div>

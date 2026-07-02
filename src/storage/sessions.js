@@ -72,6 +72,14 @@ export function deleteSession(id) {
   return writeAll(sessions)
 }
 
+export function updateSessionRpe(id, rpe) {
+  const sessions = loadSessions()
+  const idx = sessions.findIndex((s) => s.id === id)
+  if (idx < 0) return false
+  sessions[idx] = { ...sessions[idx], rpe }
+  return writeAll(sessions)
+}
+
 // crypto.randomUUID() requires a secure context (HTTPS or localhost).
 // Fallback when serving via LAN IP in HTTP (e.g. testing on iPhone).
 function genId() {
