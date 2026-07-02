@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Pencil, X, LogOut } from 'lucide-react'
-import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
+import { Pencil, X, LogOut, Flame } from 'lucide-react'
+import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic, setWeeklyGoal } from '../storage/player'
+import { loadSessions } from '../storage/sessions'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
+import { computeWeeklyStats } from '../domain/streak'
 import { supabase } from '../lib/supabase'
 import {
   findCosmeticById,
@@ -27,21 +29,30 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
   }, [])
   useEffect(() => {
-    if (refugeFrameRef.current) {
-      const { width, height } = refugeFrameRef.current.getBoundingClientRect()
+    const el = refugeFrameRef.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
       setFrameDims({ w: Math.round(width), h: Math.round(height) })
-    }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   async function handleLogout() {
-    await supabase.auth.signOut()
-    localStorage.clear()
+    const { error } = await supabase.auth.signOut()
+    if (!error) localStorage.clear()
   }
 
   const balance = getBalance(player)
   const lvl = computeLevel(player.totalXp)
   const unlocked = new Set(player.badgesUnlocked ?? [])
   const equippedTitle = findCosmeticById(player.cosmeticsEquipped?.titre)
+
+  const sessions = useMemo(() => loadSessions(), [player.totalRunes])
+  const weekly = useMemo(() => computeWeeklyStats(sessions), [sessions])
+  const goal = player.weeklyGoal ?? 3
+  const weekPct = Math.min(1, weekly.weekSessions / goal)
 
   function handleTryOn(type, id) {
     if (player.cosmeticsEquipped?.[type] === id) {
@@ -122,6 +133,60 @@ export default function Home() {
         </div>
 
         <section className="mx-auto mt-6 max-w-md space-y-4">
+          {/* Cette semaine — streak hebdo */}
+          <div className="rounded-2xl border border-forge-light bg-forge p-5">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-ash">Cette semaine</p>
+              <p className="font-mono text-[10px] text-ash">
+                {weekly.weekSessions} / {goal}
+              </p>
+            </div>
+            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-charcoal">
+              <div
+                className="h-full bg-ember transition-all"
+                style={{ width: `${weekPct * 100}%` }}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <Flame
+                size={14}
+                className={weekly.streak > 0 ? 'text-ember' : 'text-ash/40'}
+                strokeWidth={weekly.streak > 0 ? 2 : 1.5}
+              />
+              <p className={`text-xs ${weekly.streak > 0 ? 'text-cream' : 'text-ash/70'}`}>
+                {weekly.streak > 0
+                  ? `Chaîne · ${weekly.streak} semaine${weekly.streak > 1 ? 's' : ''}`
+                  : 'Chaîne à démarrer'}
+              </p>
+              {weekly.recordStreak > 0 && weekly.recordStreak > weekly.streak && (
+                <p className="ml-auto font-mono text-[10px] text-ash/50">
+                  record · {weekly.recordStreak}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center gap-1.5">
+              <p className="text-[9px] uppercase tracking-[0.25em] text-ash/50">Objectif</p>
+              {[2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPlayer(setWeeklyGoal(n))}
+                  className={`h-6 w-6 rounded-full border text-[10px] font-mono transition-colors ${
+                    goal === n
+                      ? 'border-ember bg-ember/15 text-cream'
+                      : 'border-forge-light bg-transparent text-ash hover:border-ash/60'
+                  }`}
+                  aria-label={`Objectif ${n} séances par semaine`}
+                  aria-pressed={goal === n}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Niveau */}
           <div className="rounded-2xl border border-forge-light bg-forge p-5">
             <div className="flex items-baseline justify-between">
@@ -266,7 +331,7 @@ export default function Home() {
                 {authUser.user_metadata?.avatar_url ? (
                   <img
                     src={authUser.user_metadata.avatar_url}
-                    alt=""
+                    alt={authUser.user_metadata?.full_name ?? 'Photo de profil'}
                     className="h-8 w-8 rounded-full border border-forge-light"
                   />
                 ) : (
