@@ -8,6 +8,117 @@ import SwipeToDelete from '../components/ui/SwipeToDelete'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import ProgressChart from '../components/ui/ProgressChart'
 
+const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+function getMonday(d) {
+  const day = d.getDay()
+  const m = new Date(d)
+  m.setDate(m.getDate() - day + (day === 0 ? -6 : 1))
+  m.setHours(0, 0, 0, 0)
+  return m
+}
+
+function TrainingHeatmap({ trainedSet }) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const startMonday = new Date(getMonday(today))
+  startMonday.setDate(startMonday.getDate() - 11 * 7)
+
+  // 12 semaines × 7 jours
+  const weeks = Array.from({ length: 12 }, (_, wi) =>
+    Array.from({ length: 7 }, (_, di) => {
+      const d = new Date(startMonday)
+      d.setDate(d.getDate() + wi * 7 + di)
+      return d
+    })
+  )
+
+  // Labels de mois : 1 fois par mois, au début de la colonne du mois
+  const monthLabels = []
+  let lastMonth = -1
+  weeks.forEach((week, wi) => {
+    const m = week[0].getMonth()
+    if (m !== lastMonth) {
+      monthLabels.push({
+        wi,
+        label: week[0].toLocaleDateString('fr-FR', { month: 'short' }),
+      })
+      lastMonth = m
+    }
+  })
+
+  const CELL = 12   // px
+  const GAP  = 3    // px
+  const STEP = CELL + GAP
+
+  return (
+    <div>
+      {/* Labels de mois */}
+      <div className="relative mb-1 ml-5 h-3">
+        {monthLabels.map(({ wi, label }) => (
+          <span
+            key={wi}
+            className="absolute text-[8px] text-ash/50"
+            style={{ left: wi * STEP }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex items-start gap-1">
+        {/* Labels jours */}
+        <div className="flex flex-col" style={{ gap: GAP }}>
+          {DAY_LABELS.map((d, i) => (
+            <div
+              key={i}
+              style={{ height: CELL, width: 12 }}
+              className="flex items-center text-[8px] text-ash/40"
+            >
+              {i % 2 === 0 ? d : ''}
+            </div>
+          ))}
+        </div>
+
+        {/* Grille */}
+        <div className="flex" style={{ gap: GAP }}>
+          {weeks.map((week, wi) => (
+            <div key={wi} className="flex flex-col" style={{ gap: GAP }}>
+              {week.map((day, di) => {
+                const key = day.toISOString().slice(0, 10)
+                const isFuture = day > today
+                const trained = trainedSet.has(key)
+                return (
+                  <div
+                    key={di}
+                    style={{ width: CELL, height: CELL, borderRadius: 2 }}
+                    className={
+                      isFuture
+                        ? 'bg-charcoal/20'
+                        : trained
+                        ? 'bg-ember'
+                        : 'bg-charcoal'
+                    }
+                  />
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Légende */}
+      <div className="mt-2 flex items-center justify-end gap-1.5">
+        <span className="text-[8px] text-ash/40">repos</span>
+        <div style={{ width: CELL, height: CELL, borderRadius: 2 }} className="bg-charcoal" />
+        <div style={{ width: CELL, height: CELL, borderRadius: 2 }} className="bg-ember" />
+        <span className="text-[8px] text-ash/40">séance</span>
+      </div>
+    </div>
+  )
+}
+
 function isSameDay(a, b) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -79,6 +190,17 @@ export default function Stats() {
     const q = exoQuery.toLowerCase()
     return exercisesInHistory.filter((x) => x.exo.name.toLowerCase().includes(q))
   }, [exercisesInHistory, exoQuery])
+
+  // --- Jours d'entraînement (pour la heatmap) ---
+  const trainedSet = useMemo(() => {
+    const set = new Set()
+    for (const s of sessions) {
+      const d = new Date(s.startedAt)
+      d.setHours(0, 0, 0, 0)
+      set.add(d.toISOString().slice(0, 10))
+    }
+    return set
+  }, [sessions])
 
   // --- Stats globales ---
   const globalStats = useMemo(() => {
@@ -307,6 +429,14 @@ export default function Stats() {
         ) : view === 'stats' ? (
           /* --- Vue stats globales --- */
           <div className="space-y-4">
+            {/* Heatmap */}
+            <div className="rounded-2xl border border-forge-light bg-forge p-5">
+              <p className="mb-3 text-[9px] uppercase tracking-[0.25em] text-ash/70">
+                Régularité · 12 semaines
+              </p>
+              <TrainingHeatmap trainedSet={trainedSet} />
+            </div>
+
             {/* Résumé */}
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-forge-light bg-forge px-3 py-3 text-center">
