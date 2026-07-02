@@ -18,15 +18,15 @@ function getMonday(d) {
   return m
 }
 
-function TrainingHeatmap({ trainedSet }) {
+function TrainingHeatmap({ trainedSet, numWeeks = 12 }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   const startMonday = new Date(getMonday(today))
-  startMonday.setDate(startMonday.getDate() - 11 * 7)
+  startMonday.setDate(startMonday.getDate() - (numWeeks - 1) * 7)
 
-  // 12 semaines × 7 jours
-  const weeks = Array.from({ length: 12 }, (_, wi) =>
+  // numWeeks semaines × 7 jours
+  const weeks = Array.from({ length: numWeeks }, (_, wi) =>
     Array.from({ length: 7 }, (_, di) => {
       const d = new Date(startMonday)
       d.setDate(d.getDate() + wi * 7 + di)
@@ -313,6 +313,19 @@ export default function Stats() {
     [sessions, selectedExoId]
   )
 
+  const exerciseTrainedSet = useMemo(() => {
+    if (!selectedExoId) return new Set()
+    const set = new Set()
+    for (const s of sessions) {
+      if (s.entries.some((e) => e.exerciseId === selectedExoId)) {
+        const d = new Date(s.startedAt)
+        d.setHours(0, 0, 0, 0)
+        set.add(d.toISOString().slice(0, 10))
+      }
+    }
+    return set
+  }, [sessions, selectedExoId])
+
   const handleDelete = (id) => {
     setPendingDeleteId(id)
     return false // snap back, le modal gère la confirmation
@@ -575,16 +588,26 @@ export default function Stats() {
                       </div>
                     </div>
                   )}
+                  <div className="mt-5 border-t border-forge-light/40 pt-4">
+                    <p className="mb-3 text-[9px] uppercase tracking-[0.25em] text-ash/50">
+                      Fréquence · 8 semaines
+                    </p>
+                    <TrainingHeatmap trainedSet={exerciseTrainedSet} numWeeks={8} />
+                  </div>
                 </>
-              ) : progressionData.length === 1 ? (
-                <p className="mt-3 text-xs text-ash/60">
-                  1 séance avec ce poids. Reviens après quelques séances pour voir ta progression.
-                </p>
               ) : (
                 <p className="mt-3 text-xs text-ash/60">
-                  Exercice sans charge enregistrée — pas de courbe de progression.
+                  {progressionData.length === 1
+                    ? '1 séance avec ce poids. Reviens après quelques séances pour voir ta progression.'
+                    : 'Exercice sans charge enregistrée — pas de courbe de progression.'}
                 </p>
               )}
+              <div className="mt-5 border-t border-forge-light/40 pt-4">
+                <p className="mb-3 text-[9px] uppercase tracking-[0.25em] text-ash/50">
+                  Fréquence · 8 semaines
+                </p>
+                <TrainingHeatmap trainedSet={exerciseTrainedSet} numWeeks={8} />
+              </div>
             </div>
           </div>
         ) : (
