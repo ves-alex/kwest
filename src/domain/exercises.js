@@ -9,6 +9,8 @@ export const GROUPS = {
   'ischios-fessiers': { label: 'Ischios / fessiers', order: 7 },
   mollets: { label: 'Mollets', order: 8 },
   core: { label: 'Abdos / Core', order: 9 },
+  cardio: { label: 'Cardio', order: 10 },
+  divers: { label: 'Divers', order: 11 },
 }
 
 export const EQUIPMENT = {
@@ -17,6 +19,7 @@ export const EQUIPMENT = {
   machine: 'Machine',
   poulie: 'Poulie',
   'poids-du-corps': 'Poids du corps',
+  cardio: 'Cardio machine',
 }
 
 export const EXERCISES = [
@@ -72,6 +75,21 @@ export const EXERCISES = [
   { id: 'planche', name: 'Planche', group: 'core', equipment: 'poids-du-corps' },
   { id: 'leg-raises', name: 'Leg raises', group: 'core', equipment: 'poids-du-corps' },
   { id: 'russian-twist', name: 'Russian twist', group: 'core', equipment: 'poids-du-corps' },
+  { id: 'chaise', name: 'Chaise (wall sit)', group: 'core', equipment: 'poids-du-corps' },
+  { id: 'gainage-lateral', name: 'Gainage latéral', group: 'core', equipment: 'poids-du-corps' },
+  { id: 'mountain-climbers', name: 'Mountain climbers', group: 'core', equipment: 'poids-du-corps' },
+
+  // Cardio — reps = durée (minutes ou secondes selon l'exo), weight = résistance/allure
+  { id: 'rameur', name: 'Rameur', group: 'cardio', equipment: 'cardio' },
+  { id: 'velo-stationnaire', name: 'Vélo stationnaire', group: 'cardio', equipment: 'cardio' },
+  { id: 'velo-elliptique', name: 'Vélo elliptique', group: 'cardio', equipment: 'cardio' },
+  { id: 'tapis-de-course', name: 'Tapis de course', group: 'cardio', equipment: 'cardio' },
+  { id: 'tapis-de-marche', name: 'Tapis de marche', group: 'cardio', equipment: 'cardio' },
+  { id: 'corde-a-sauter', name: 'Corde à sauter', group: 'cardio', equipment: 'poids-du-corps' },
+  { id: 'burpees', name: 'Burpees', group: 'cardio', equipment: 'poids-du-corps' },
+
+  // Divers
+  { id: 'autre', name: 'Autre / Libre', group: 'divers', equipment: 'poids-du-corps' },
 ]
 
 // Helpers
@@ -106,6 +124,8 @@ const DIFFICULTY_OVERRIDES = {
   'souleve-de-terre': 1.4,
   'souleve-de-terre-roumain': 1.4,
   'developpe-militaire': 1.4,
+  // Cardio intense → 1.2
+  'burpees': 1.2,
   // Composés (haltères, polyarticulaires) → 1.2
   'developpe-couche-halteres': 1.2,
   'developpe-incline-halteres': 1.2,
@@ -119,16 +139,30 @@ const DIFFICULTY_OVERRIDES = {
 }
 
 // Pour les exos au poids du corps : multiplicateur par rep (quand poids = 0)
+// Cardio machines : reps = minutes, facteur = runes par minute
 const BODYWEIGHT_FACTORS = {
   'pompes': 1.5,
   'tractions': 4,
   'dips': 3,
   'crunch': 0.5,
-  'planche': 1, // 1 rune par seconde tenue (reps = secondes)
+  'planche': 1,           // 1 rune/seconde tenue
   'leg-raises': 1.5,
   'russian-twist': 0.8,
   'extensions-mollets-debout': 0.5,
   'extensions-mollets-assis': 0.5,
+  // Core (timer)
+  'chaise': 1,            // 1 rune/seconde
+  'gainage-lateral': 1,
+  'mountain-climbers': 1.2,
+  // Cardio (runes/minute)
+  'rameur': 5,
+  'velo-stationnaire': 4,
+  'velo-elliptique': 4,
+  'tapis-de-course': 6,
+  'tapis-de-marche': 3,
+  'corde-a-sauter': 0.4,  // runes/saut
+  'burpees': 3,
+  'autre': 1,
 }
 
 export function getDifficulty(id) {
