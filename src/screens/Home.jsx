@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Pencil, X, LogOut } from 'lucide-react'
 import { loadPlayer, getBalance, equipCosmetic, unequipCosmetic } from '../storage/player'
@@ -21,8 +21,16 @@ export default function Home() {
   const [selectedBadge, setSelectedBadge] = useState(null)
   const [dressingOpen, setDressingOpen] = useState(false)
   const [authUser, setAuthUser] = useState(null)
+  const refugeFrameRef = useRef(null)
+  const [frameDims, setFrameDims] = useState(null)
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
+  }, [])
+  useEffect(() => {
+    if (refugeFrameRef.current) {
+      const { width, height } = refugeFrameRef.current.getBoundingClientRect()
+      setFrameDims({ w: Math.round(width), h: Math.round(height) })
+    }
   }, [])
 
   async function handleLogout() {
@@ -53,44 +61,67 @@ export default function Home() {
 
   return (
     <>
-      <div className="px-6 py-10">
-        <header className="mx-auto max-w-md text-center">
-          <p className="text-[10px] uppercase tracking-[0.4em] text-ash">ton refuge</p>
-          <h1 className="mt-3 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
-            Refuge
-          </h1>
-        </header>
+      <div className="py-8 px-4">
 
-        {/* Avatar — cliquable pour ouvrir le dressing */}
-        <div className="mx-auto mt-10 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setDressingOpen(true)}
-            className="group relative"
-            aria-label="Ouvrir le dressing"
-          >
-            <PixelAvatar
-              auraId={player.cosmeticsEquipped?.aura}
-              skinId={player.cosmeticsEquipped?.skin}
-              fondId={player.cosmeticsEquipped?.['fond-avatar']}
-              pixelSize={8}
+        {/* Cadre Refuge — scène des badges flottants */}
+        <div
+          ref={refugeFrameRef}
+          className="relative overflow-hidden rounded-2xl border border-forge-light/60 bg-forge/30"
+        >
+          {/* Coins ember décoratifs */}
+          <span className="pointer-events-none absolute left-3 top-3 h-6 w-6 rounded-tl border-l-2 border-t-2 border-ember/50" />
+          <span className="pointer-events-none absolute right-3 top-3 h-6 w-6 rounded-tr border-r-2 border-t-2 border-ember/50" />
+          <span className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 rounded-bl border-b-2 border-l-2 border-ember/50" />
+          <span className="pointer-events-none absolute bottom-3 right-3 h-6 w-6 rounded-br border-b-2 border-r-2 border-ember/50" />
+
+          <div className="px-6 pb-10 pt-10 text-center">
+            <header>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-ash">ton refuge</p>
+              <h1 className="mt-3 font-display text-4xl uppercase tracking-[0.15em] text-cream sm:text-5xl sm:tracking-[0.2em]">
+                Refuge
+              </h1>
+            </header>
+
+            {/* Avatar — cliquable pour ouvrir le dressing */}
+            <div className="mt-10 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setDressingOpen(true)}
+                className="group relative"
+                aria-label="Ouvrir le dressing"
+              >
+                <PixelAvatar
+                  auraId={player.cosmeticsEquipped?.aura}
+                  skinId={player.cosmeticsEquipped?.skin}
+                  fondId={player.cosmeticsEquipped?.['fond-avatar']}
+                  pixelSize={8}
+                />
+                <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-forge-light bg-forge text-ash transition-colors group-hover:border-ember group-hover:text-ember">
+                  <Pencil size={11} />
+                </span>
+              </button>
+            </div>
+
+            <p className="mt-4 font-display text-lg uppercase tracking-[0.25em] text-cream">
+              {lvl.title}
+            </p>
+            {equippedTitle && (
+              <p className="mt-1 text-xs italic tracking-wider text-glow">
+                « {equippedTitle.name} »
+              </p>
+            )}
+          </div>
+
+          {frameDims && (
+            <FloatingBadges
+              ownedIds={player.cosmeticsOwned}
+              zoneW={frameDims.w}
+              zoneH={frameDims.h}
             />
-            <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-forge-light bg-forge text-ash transition-colors group-hover:border-ember group-hover:text-ember">
-              <Pencil size={11} />
-            </span>
-          </button>
+          )}
         </div>
 
-        <p className="mt-4 text-center font-display text-lg uppercase tracking-[0.25em] text-cream">
-          {lvl.title}
-        </p>
-        {equippedTitle && (
-          <p className="mt-1 text-center text-xs italic tracking-wider text-glow">
-            « {equippedTitle.name} »
-          </p>
-        )}
-
-        <section className="mx-auto mt-10 max-w-md space-y-4">
+        <section className="mx-auto mt-6 max-w-md space-y-4">
           {/* Niveau */}
           <div className="rounded-2xl border border-forge-light bg-forge p-5">
             <div className="flex items-baseline justify-between">
@@ -410,7 +441,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <FloatingBadges ownedIds={player.cosmeticsOwned} />
     </>
   )
 }

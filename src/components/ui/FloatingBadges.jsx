@@ -18,17 +18,17 @@ const RARITY_GLOW = {
 
 const DURATIONS = [10, 13, 11, 15, 12, 14]
 
-function BadgeBubble({ cosmetic, initialX, initialY, duration, stageW, stageH }) {
+function BadgeBubble({ cosmetic, initialX, initialY, duration, zoneW, zoneH }) {
   const [target, setTarget] = useState({ x: initialX, y: initialY })
 
   const drift = useCallback(() => {
-    const margin = 20
+    const margin = 16
     const bubble = 48
     setTarget({
-      x: margin + Math.random() * Math.max(0, stageW - bubble - margin * 2),
-      y: margin + Math.random() * Math.max(0, stageH - bubble - margin * 2),
+      x: margin + Math.random() * Math.max(0, zoneW - bubble - margin * 2),
+      y: margin + Math.random() * Math.max(0, zoneH - bubble - margin * 2),
     })
-  }, [stageW, stageH])
+  }, [zoneW, zoneH])
 
   useEffect(() => {
     drift()
@@ -37,7 +37,7 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration, stageW, stageH })
   return (
     <motion.div
       className={[
-        'pointer-events-none absolute',
+        'pointer-events-none absolute z-[3]',
         'flex h-12 w-12 items-center justify-center',
         'overflow-hidden rounded-full border-2',
         'bg-charcoal/75 backdrop-blur-[2px]',
@@ -64,28 +64,21 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration, stageW, stageH })
   )
 }
 
-export default function FloatingBadges({ ownedIds }) {
+export default function FloatingBadges({ ownedIds, zoneW, zoneH }) {
   const badges = (ownedIds ?? [])
     .map((id) => findCosmeticById(id))
     .filter((c) => c?.type === 'badge')
 
   if (badges.length === 0) return null
 
-  // Scène fixe en haut de l'écran — overflow hidden = les bulles ne débordent jamais
-  const stageW = typeof window !== 'undefined' ? window.innerWidth  : 390
-  const stageH = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.44) : 290
-
-  const cx = stageW / 2
-  const cy = stageH * 0.52
+  const cx = zoneW / 2
+  const cy = zoneH / 2
 
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[3] overflow-hidden"
-      style={{ height: stageH }}
-    >
+    <>
       {badges.map((badge, i) => {
         const angle = (i / badges.length) * Math.PI * 2 - Math.PI / 2
-        const r = Math.min(stageW * 0.32, stageH * 0.42)
+        const r = Math.min(zoneW * 0.30, zoneH * 0.32)
         const initialX = cx + Math.cos(angle) * r - 24
         const initialY = cy + Math.sin(angle) * r - 24
 
@@ -96,11 +89,11 @@ export default function FloatingBadges({ ownedIds }) {
             initialX={initialX}
             initialY={initialY}
             duration={DURATIONS[i % DURATIONS.length]}
-            stageW={stageW}
-            stageH={stageH}
+            zoneW={zoneW}
+            zoneH={zoneH}
           />
         )
       })}
-    </div>
+    </>
   )
 }
