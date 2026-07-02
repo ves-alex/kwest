@@ -51,7 +51,11 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration }) {
       style={{ left: 0, top: 0 }}
       initial={{ x: initialX, y: initialY, opacity: 0 }}
       animate={{ x: target.x, y: target.y, opacity: 0.82 }}
-      transition={{ duration, ease: [0.4, 0, 0.6, 1] }}
+      transition={{
+        x: { duration, ease: [0.4, 0, 0.6, 1] },
+        y: { duration, ease: [0.4, 0, 0.6, 1] },
+        opacity: { duration: 0.6 },
+      }}
       onAnimationComplete={drift}
     >
       <img
