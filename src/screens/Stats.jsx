@@ -438,21 +438,10 @@ export default function Stats() {
             </div>
 
             {/* Résumé */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-forge-light bg-forge px-3 py-3 text-center">
                 <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Séances</p>
                 <p className="mt-1 font-display text-3xl text-cream">{sessions.length}</p>
-              </div>
-              <div className="rounded-xl border border-forge-light bg-forge px-3 py-3 text-center">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Volume</p>
-                <p className="mt-1 font-display text-3xl text-cream">
-                  {globalStats.totalVolume > 999
-                    ? `${(globalStats.totalVolume / 1000).toFixed(1)}t`
-                    : `${globalStats.totalVolume}`}
-                </p>
-                <p className="text-[9px] text-ash/50">
-                  {globalStats.totalVolume > 999 ? '' : 'kg'}
-                </p>
               </div>
               <div className="rounded-xl border border-forge-light bg-forge px-3 py-3 text-center">
                 <p className="text-[9px] uppercase tracking-[0.2em] text-ash">Durée moy.</p>
