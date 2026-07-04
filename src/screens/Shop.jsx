@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Check } from 'lucide-react'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { COSMETICS, RARITIES } from '../domain/cosmetics'
 import {
@@ -10,8 +9,7 @@ import {
   unequipCosmetic,
 } from '../storage/player'
 import { RUNE_SYMBOL } from '../domain/economy'
-import { RARITY_STYLES } from '../theme/rarity'
-import ItemPreview from './shop/ItemPreview'
+import ShopCard from './shop/ShopCard'
 import ShopItemSheet from './shop/ShopItemSheet'
 
 const SECTIONS = [
@@ -23,10 +21,29 @@ const SECTIONS = [
   { type: 'fond', label: 'Fonds de page' },
 ]
 
+// Classement par rareté (ordre de progression) puis prix. Dans ces données la
+// rareté et le prix vont de pair, donc un seul ordre suffit.
+function sortItems(items) {
+  return [...items].sort(
+    (a, b) => RARITIES[a.rarity].order - RARITIES[b.rarity].order || a.price - b.price,
+  )
+}
+
+function Row({ children }) {
+  return <div className="-mx-6 mt-3 flex gap-3 overflow-x-auto px-6 pb-2">{children}</div>
+}
+
+function SubLabel({ children }) {
+  return (
+    <p className="mt-4 text-[8px] uppercase tracking-[0.35em] text-ash/50">{children}</p>
+  )
+}
+
 export default function Shop() {
   const [player, setPlayer] = useState(loadPlayer)
   const [pendingBuy, setPendingBuy] = useState(null)
   const [selectedItem, setSelectedItem] = useState(null)
+  const [affordableOnly, setAffordableOnly] = useState(false)
   const balance = getBalance(player)
 
   const confirmBuy = () => {
@@ -51,6 +68,13 @@ export default function Shop() {
     setPendingBuy(c)
   }
 
+  const pill = (active) =>
+    `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] transition-colors ${
+      active
+        ? 'border-ember bg-ember/20 text-cream'
+        : 'border-forge-light bg-transparent text-ash hover:border-ember hover:text-cream'
+    }`
+
   return (
     <div className="px-6 py-10">
       <header className="mx-auto max-w-md text-center">
@@ -63,75 +87,58 @@ export default function Shop() {
         </p>
       </header>
 
-      <div className="mt-10 space-y-8">
+      {/* Filtre budget (s'applique à « À forger ») */}
+      <div className="mx-auto mt-6 flex max-w-md items-center justify-center">
+        <button
+          type="button"
+          onClick={() => setAffordableOnly((v) => !v)}
+          className={pill(affordableOnly)}
+          aria-pressed={affordableOnly}
+        >
+          {RUNE_SYMBOL} Dans mon budget
+        </button>
+      </div>
+
+      <div className="mt-8 space-y-8">
         {SECTIONS.map(({ type, label }) => {
           const items = COSMETICS.filter((c) => c.type === type)
           if (items.length === 0) return null
+
+          const owned = sortItems(
+            items.filter((c) => player.cosmeticsOwned.includes(c.id)),
+          )
+          let toForge = items.filter((c) => !player.cosmeticsOwned.includes(c.id))
+          if (affordableOnly) toForge = toForge.filter((c) => c.price <= balance)
+          toForge = sortItems(toForge)
+
+          if (owned.length === 0 && toForge.length === 0) return null
+          const showSubLabels = owned.length > 0 && toForge.length > 0
+
           return (
             <section key={type}>
-              <p className="px-0 text-[9px] uppercase tracking-[0.35em] text-ash/60">{label}</p>
-              <div className="-mx-6 mt-3 flex gap-3 overflow-x-auto px-6 pb-2">
-                {items.map((c) => {
-                  const style = RARITY_STYLES[c.rarity]
-                  const rarity = RARITIES[c.rarity]
-                  const isOwned = player.cosmeticsOwned.includes(c.id)
-                  const isEquipped = player.cosmeticsEquipped?.[c.type] === c.id
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setSelectedItem(c)}
-                      className={`relative w-[136px] shrink-0 overflow-hidden rounded-2xl border-2 bg-forge text-left transition-all active:scale-95 ${
-                        isEquipped ? 'border-glow' : style.border
-                      } ${!isOwned ? style.glow : ''}`}
-                    >
-                      {/* Bandeau rareté */}
-                      <div
-                        className={`flex items-center justify-center gap-1.5 border-b py-1.5 ${style.headerBg} ${style.headerBorder}`}
-                      >
-                        <span className={`text-[10px] leading-none ${style.text}`}>
-                          {style.symbol}
-                        </span>
-                        <span
-                          className={`text-[8px] font-medium uppercase tracking-[0.3em] ${style.text}`}
-                        >
-                          {rarity.label}
-                        </span>
-                      </div>
+              <p className="text-[9px] uppercase tracking-[0.35em] text-ash/60">{label}</p>
 
-                      {/* Preview */}
-                      <div className="flex min-h-[96px] flex-col items-center justify-center px-3 pt-3 pb-2">
-                        <ItemPreview c={c} player={player} size="sm" />
-                      </div>
+              {toForge.length > 0 && (
+                <>
+                  {showSubLabels && <SubLabel>À forger</SubLabel>}
+                  <Row>
+                    {toForge.map((c) => (
+                      <ShopCard key={c.id} c={c} player={player} onSelect={setSelectedItem} />
+                    ))}
+                  </Row>
+                </>
+              )}
 
-                      {/* Nom + prix / état */}
-                      <div className="border-t border-forge-light/40 px-3 py-2">
-                        <p className="line-clamp-2 min-h-[26px] text-[11px] font-medium leading-tight text-cream">
-                          {c.name}
-                        </p>
-                        <div className="mt-1.5">
-                          {isEquipped ? (
-                            <span className="flex items-center gap-1 text-glow">
-                              <Check size={10} strokeWidth={2.5} />
-                              <span className="text-[9px] font-medium uppercase tracking-[0.15em]">
-                                Équipé
-                              </span>
-                            </span>
-                          ) : isOwned ? (
-                            <span className="text-[9px] uppercase tracking-[0.15em] text-ash/60">
-                              Possédé
-                            </span>
-                          ) : (
-                            <span className="font-mono text-[11px] font-medium text-ember">
-                              {RUNE_SYMBOL} {c.price}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {owned.length > 0 && (
+                <>
+                  {showSubLabels && <SubLabel>Ta collection</SubLabel>}
+                  <Row>
+                    {owned.map((c) => (
+                      <ShopCard key={c.id} c={c} player={player} onSelect={setSelectedItem} />
+                    ))}
+                  </Row>
+                </>
+              )}
             </section>
           )
         })}
