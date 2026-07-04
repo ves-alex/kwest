@@ -58,23 +58,7 @@ export default function Home() {
           <span className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 rounded-bl border-b-2 border-l-2 border-ember/50" />
           <span className="pointer-events-none absolute bottom-3 right-3 h-6 w-6 rounded-br border-b-2 border-r-2 border-ember/50" />
 
-          {/* Arc ember dans le coin haut-droit, entourant le cluster engrenage + toggle */}
-          <svg
-            className="pointer-events-none absolute right-0 top-0 z-[3]"
-            width="170"
-            height="170"
-            viewBox="0 0 170 170"
-            aria-hidden
-          >
-            <path
-              d="M 30 0 Q 30 130 170 130"
-              fill="none"
-              stroke="rgb(124 45 18 / 0.5)"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-
+          {/* Engrenage + toggle thème empilés dans le coin haut-droit */}
           <Link
             to="/settings"
             className="absolute right-3 top-3 z-[4] flex h-8 w-8 items-center justify-center rounded-full border border-ember/50 bg-charcoal/60 text-ash/80 transition-colors hover:border-ember hover:bg-charcoal hover:text-ember"
@@ -86,7 +70,7 @@ export default function Home() {
           <button
             type="button"
             onClick={handleToggleTheme}
-            className="absolute right-14 top-14 z-[4] flex h-8 w-8 items-center justify-center rounded-full border border-ember/50 bg-charcoal/60 text-ash/80 transition-colors hover:border-ember hover:bg-charcoal hover:text-ember"
+            className="absolute right-3 top-14 z-[4] flex h-8 w-8 items-center justify-center rounded-full border border-ember/50 bg-charcoal/60 text-ash/80 transition-colors hover:border-ember hover:bg-charcoal hover:text-ember"
             aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
           >
             {theme === 'dark' ? (
