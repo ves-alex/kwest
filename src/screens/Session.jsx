@@ -28,6 +28,19 @@ import { formatStartedAt, formatElapsed } from '../lib/format'
 import SessionRecap from './session/SessionRecap'
 import RoutinePicker from './session/RoutinePicker'
 
+// Bloque la saisie non numérique en filtrant la valeur au fil de la frappe.
+// On garde une chaîne (pas un nombre) pour autoriser les états transitoires
+// comme "41." pendant qu'on tape ; parseFloat gère la conversion en aval.
+function sanitizeInt(v) {
+  return v.replace(/\D/g, '')
+}
+function sanitizeDecimal(v) {
+  // virgule (clavier FR) → point, puis on ne garde que chiffres + un seul point
+  const cleaned = v.replace(',', '.').replace(/[^0-9.]/g, '')
+  const parts = cleaned.split('.')
+  return parts.length <= 1 ? cleaned : parts[0] + '.' + parts.slice(1).join('')
+}
+
 export default function Session() {
   const [active, setActive] = useState(loadActiveSession)
   const [recap, setRecap] = useState(null)
@@ -373,7 +386,7 @@ export default function Session() {
                           inputMode="numeric"
                           pattern="[0-9]*"
                           value={set.reps}
-                          onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: e.target.value })}
+                          onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: sanitizeInt(e.target.value) })}
                           placeholder="reps"
                           className={`w-16 rounded-md border px-2 py-1.5 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
                             set.validated
@@ -388,7 +401,7 @@ export default function Session() {
                             inputMode="decimal"
                             pattern="[0-9]*\.?[0-9]*"
                             value={set.weight}
-                            onChange={(e) => handleUpdateSet(entryIndex, setIndex, { weight: e.target.value })}
+                            onChange={(e) => handleUpdateSet(entryIndex, setIndex, { weight: sanitizeDecimal(e.target.value) })}
                             placeholder="poids"
                             className={`w-full rounded-md border px-2 py-1.5 pr-8 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
                               set.validated
