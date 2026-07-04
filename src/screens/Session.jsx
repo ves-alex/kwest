@@ -41,6 +41,15 @@ function sanitizeDecimal(v) {
   return parts.length <= 1 ? cleaned : parts[0] + '.' + parts.slice(1).join('')
 }
 
+// Seuils anti séance-fantôme.
+// FREE_SESSION_MIN : une séance libre (aucune rep validée, juste le chrono) doit
+//   durer au moins ça pour être enregistrée — sinon c'est une ouverture par erreur.
+// PHANTOM_MAX_* : une séance avec quelques reps mais bâclée en un instant
+//   (ex : 1 rep en 30s pour tester) sous ces deux seuils cumulés est ignorée.
+const FREE_SESSION_MIN = 5
+const PHANTOM_MAX_MIN = 2
+const PHANTOM_MAX_REPS = 4
+
 export default function Session() {
   const [active, setActive] = useState(loadActiveSession)
   const [recap, setRecap] = useState(null)
@@ -126,19 +135,31 @@ export default function Session() {
     const isTimerOnly = finished.entries.length === 0
     const durationMin = (new Date(finished.endedAt) - new Date(finished.startedAt)) / 60000
 
-    if (isTimerOnly && durationMin < 5) {
+    const isCounted = (s) => s.validated !== false
+    const totalSets = finished.entries.reduce(
+      (acc, e) => acc + e.sets.filter(isCounted).length,
+      0
+    )
+    const totalReps = finished.entries.reduce(
+      (acc, e) =>
+        acc + e.sets.reduce((a, s) => (isCounted(s) ? a + (parseInt(s.reps, 10) || 0) : a), 0),
+      0
+    )
+
+    // Séance-fantôme non enregistrée : séance libre (aucune rep) trop courte, ou
+    // quelques reps bâclées en un instant.
+    const isPhantom =
+      totalReps === 0
+        ? durationMin < FREE_SESSION_MIN
+        : durationMin < PHANTOM_MAX_MIN && totalReps <= PHANTOM_MAX_REPS
+    if (isPhantom) {
       clearActiveSession()
       setActive(null)
       setRecap({ abandoned: true })
       return
     }
 
-    const isCounted = (s) => s.validated !== false
     const totalExos = finished.entries.filter((e) => e.sets.some(isCounted)).length
-    const totalSets = finished.entries.reduce(
-      (acc, e) => acc + e.sets.filter(isCounted).length,
-      0
-    )
     const totalVolume = Math.round(
       finished.entries.reduce(
         (total, e) =>
