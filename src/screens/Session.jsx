@@ -21,6 +21,7 @@ import { evaluateBadges } from '../domain/badges'
 import { findExerciseById, EQUIPMENT } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import RestTimer from '../components/ui/RestTimer'
+import { unlockAudio } from '../lib/sound'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { loadRoutines } from '../storage/routines'
 import { formatStartedAt, formatElapsed } from '../lib/format'
@@ -98,6 +99,7 @@ export default function Session() {
     const set = active.entries[entryIndex].sets[setIndex]
     setActive(updateSetInEntry(entryIndex, setIndex, { validated: !set.validated }))
     if (!set.validated) {
+      unlockAudio() // débloque l'audio iOS pendant le geste (pour le son de fin)
       setRestAutoStart(true)
       setShowRestTimer(true)
     }
@@ -453,7 +455,7 @@ export default function Session() {
       <section className="mx-auto mt-10 flex max-w-md flex-col items-center gap-4">
         <button
           type="button"
-          onClick={() => { setRestAutoStart(false); setShowRestTimer(true) }}
+          onClick={() => { setRestAutoStart(true); setShowRestTimer(true) }}
           className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-forge-light bg-transparent px-4 py-2.5 text-xs uppercase tracking-[0.25em] text-ash transition-colors hover:border-ember hover:text-ember"
         >
           ⏱ Timer de repos
