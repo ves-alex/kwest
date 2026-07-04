@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { X, Plus, Trash2, Pencil } from 'lucide-react'
+import { X, Plus, Trash2, Pencil, Copy } from 'lucide-react'
 import ConfirmModal from '../../components/ui/ConfirmModal'
 import { findExerciseById } from '../../domain/exercises'
-import { loadRoutines, saveRoutine, deleteRoutine } from '../../storage/routines'
+import { loadRoutines, saveRoutine, deleteRoutine, duplicateRoutine } from '../../storage/routines'
 
 export default function RoutinePicker({ isOpen, routines, onClose, onStart, onChange }) {
   const [pendingDeleteId, setPendingDeleteId] = useState(null)
@@ -25,6 +25,11 @@ export default function RoutinePicker({ isOpen, routines, onClose, onStart, onCh
     onChange?.(loadRoutines())
     setEditingId(null)
     setEditingName('')
+  }
+
+  const handleDuplicate = (id) => {
+    duplicateRoutine(id)
+    onChange?.(loadRoutines())
   }
 
   return (
@@ -105,6 +110,14 @@ export default function RoutinePicker({ isOpen, routines, onClose, onStart, onCh
                     )}
                     {editingId !== r.id && (
                       <>
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicate(r.id)}
+                          className="shrink-0 text-ash/40 transition-colors hover:text-cream"
+                          aria-label={`Dupliquer ${r.name}`}
+                        >
+                          <Copy size={13} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => { setEditingId(r.id); setEditingName(r.name) }}

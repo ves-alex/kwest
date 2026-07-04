@@ -32,6 +32,21 @@ export function deleteRoutine(id) {
   return write(loadRoutines().filter((r) => r.id !== id))
 }
 
+export function duplicateRoutine(id) {
+  const all = loadRoutines()
+  const r = all.find((rt) => rt.id === id)
+  if (!r) return null
+  const copy = {
+    ...r,
+    id: genId('r'),
+    name: `${r.name} (copie)`,
+    createdAt: new Date().toISOString(),
+  }
+  all.push(copy)
+  write(all)
+  return copy
+}
+
 export function buildRoutine(name, exerciseIds) {
   return {
     id: genId('r'),
