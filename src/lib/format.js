@@ -1,3 +1,21 @@
+// Unité affichée pour la valeur principale d'une série, selon le type de mesure.
+// metric 'temps' → 's' ou 'min' ; sinon → 'reps'.
+export function metricValueUnit(metric, unit) {
+  if (metric === 'temps') return unit === 'min' ? 'min' : 's'
+  return 'reps'
+}
+
+// Résumé court d'une perf selon le type de mesure.
+// `reps` porte la valeur principale (répétitions ou durée). Ex :
+//   charge → "80kg × 5" (ou "12 reps" si sans lest) · reps → "20 reps" · temps → "45 s"
+export function formatPerf(metric, unit, { reps, weight } = {}) {
+  const r = reps === '' || reps == null ? '—' : reps
+  if (metric === 'temps') return `${r} ${unit === 'min' ? 'min' : 's'}`
+  if (metric === 'reps') return `${r} reps`
+  const w = parseFloat(weight) || 0
+  return w > 0 ? `${weight}kg × ${r}` : `${r} reps`
+}
+
 // Durée d'une séance : "12 min", "1 h 30", "< 1 min"
 export function formatDuration(startISO, endISO) {
   if (!endISO) return '—'

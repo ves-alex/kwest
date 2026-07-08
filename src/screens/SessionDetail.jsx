@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ChevronLeft, Trash2 } from 'lucide-react'
 import { findSession, deleteSession } from '../storage/sessions'
-import { findExerciseById, EQUIPMENT } from '../domain/exercises'
+import { findExerciseById, EQUIPMENT, getMetric, getMetricUnit } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import ConfirmModal from '../components/ui/ConfirmModal'
-import { formatDuration } from '../lib/format'
+import { formatDuration, formatPerf } from '../lib/format'
 
 function formatLong(iso) {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -85,6 +85,8 @@ export default function SessionDetail() {
         )}
         {session.entries.map((entry, i) => {
           const exo = findExerciseById(entry.exerciseId)
+          const metric = getMetric(entry.exerciseId)
+          const unit = getMetricUnit(entry.exerciseId)
           return (
             <article
               key={i}
@@ -112,10 +114,7 @@ export default function SessionDetail() {
                       <span className="w-5 text-center font-mono text-xs text-ash">
                         {si + 1}
                       </span>
-                      <span className="text-cream">
-                        {set.reps || '—'} <span className="text-ash">×</span>{' '}
-                        {set.weight || '0'} <span className="text-xs text-ash">kg</span>
-                      </span>
+                      <span className="text-cream">{formatPerf(metric, unit, set)}</span>
                     </li>
                   ))}
                 </ul>

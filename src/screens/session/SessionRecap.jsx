@@ -5,6 +5,7 @@ import CountUp from '../../components/ui/CountUp'
 import { computeLevel, RUNE_SYMBOL } from '../../domain/economy'
 import { findBadgeById } from '../../domain/badges'
 import { findExerciseById } from '../../domain/exercises'
+import { formatPerf } from '../../lib/format'
 import { updateSessionRpe } from '../../storage/sessions'
 import { saveRoutine, buildRoutine, loadRoutines } from '../../storage/routines'
 
@@ -260,7 +261,9 @@ export default function SessionRecap({ recap, setRecap, onClose, onRoutinesChang
                 >
                   <p className="truncate text-xs text-cream">{exo.name}</p>
                   <p className="ml-3 shrink-0 font-mono text-[10px] text-ash">
-                    {e.bestWeight > 0 ? `${e.bestWeight} kg × ${e.bestReps}` : `${e.bestReps} reps`}
+                    {e.metric
+                      ? formatPerf(e.metric, e.unit, { reps: e.bestReps, weight: e.bestWeight })
+                      : e.bestWeight > 0 ? `${e.bestWeight} kg × ${e.bestReps}` : `${e.bestReps} reps`}
                     {' · '}{e.sets}×
                   </p>
                 </div>

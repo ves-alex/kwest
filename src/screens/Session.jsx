@@ -18,13 +18,13 @@ import {
 import { loadPlayer, savePlayer } from '../storage/player'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
 import { evaluateBadges } from '../domain/badges'
-import { findExerciseById, EQUIPMENT } from '../domain/exercises'
+import { findExerciseById, EQUIPMENT, getMetric, getMetricUnit } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import RestTimer from '../components/ui/RestTimer'
 import { unlockAudio } from '../lib/sound'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { loadRoutines } from '../storage/routines'
-import { formatStartedAt, formatElapsed } from '../lib/format'
+import { formatStartedAt, formatElapsed, formatPerf, metricValueUnit } from '../lib/format'
 import SessionRecap from './session/SessionRecap'
 import RoutinePicker from './session/RoutinePicker'
 
@@ -175,13 +175,20 @@ export default function Session() {
       .map((e) => {
         const validSets = e.sets.filter((s) => isCounted(s) && parseFloat(s.reps) > 0)
         if (validSets.length === 0) return null
+        const eMetric = getMetric(e.exerciseId)
+        // Meilleur set : plus gros volume (charge) ou plus grande valeur principale (reps/temps)
         const best = validSets.reduce((b, s) => {
-          const vol = (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0)
-          const bvol = (parseFloat(b.reps) || 0) * (parseFloat(b.weight) || 0)
-          return vol >= bvol ? s : b
+          if (eMetric === 'charge') {
+            const vol = (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0)
+            const bvol = (parseFloat(b.reps) || 0) * (parseFloat(b.weight) || 0)
+            return vol >= bvol ? s : b
+          }
+          return (parseFloat(s.reps) || 0) >= (parseFloat(b.reps) || 0) ? s : b
         }, validSets[0])
         return {
           exerciseId: e.exerciseId,
+          metric: eMetric,
+          unit: getMetricUnit(e.exerciseId),
           sets: validSets.length,
           bestReps: best.reps,
           bestWeight: parseFloat(best.weight) || 0,
@@ -332,18 +339,25 @@ export default function Session() {
 
         {active.entries.map((entry, entryIndex) => {
           const exo = findExerciseById(entry.exerciseId)
+          const metric = getMetric(entry.exerciseId)
+          const unit = getMetricUnit(entry.exerciseId)
+          const isCharge = metric === 'charge'
+          const valUnit = metricValueUnit(metric, unit)
           const lastPerf = exercisePerfs[entry.exerciseId]?.lastPerf ?? null
           const pr = exercisePerfs[entry.exerciseId]?.pr ?? null
+          // Meilleure perf de la séance : poids max (charge) ou valeur principale max (reps/temps)
           const currentBest = entry.sets.reduce((max, s) => {
-            const w = parseFloat(s.weight) || 0
-            return w > max ? w : max
+            const v = isCharge ? (parseFloat(s.weight) || 0) : (parseFloat(s.reps) || 0)
+            return v > max ? v : max
           }, 0)
           let prHint = null
           if (pr && currentBest > 0) {
-            const diff = pr.weight - currentBest
-            if (diff > 0) prHint = `à ${diff}kg`
+            const prVal = isCharge ? pr.weight : pr.reps
+            const suffix = isCharge ? 'kg' : ` ${valUnit}`
+            const diff = prVal - currentBest
+            if (diff > 0) prHint = `à ${diff}${suffix}`
             else if (diff === 0) prHint = 'à égaler'
-            else prHint = `+${-diff}kg !`
+            else prHint = `+${-diff}${suffix} !`
           }
           return (
             <article key={entryIndex} className="rounded-2xl border border-forge-light bg-forge p-4">
@@ -359,12 +373,12 @@ export default function Session() {
                   <div className="mt-0.5 flex flex-wrap gap-x-3">
                     {lastPerf && (
                       <p className="text-[10px] text-ash/60">
-                        Dernière · {lastPerf.weight || '—'}kg × {lastPerf.reps || '—'}
+                        Dernière · {formatPerf(metric, unit, lastPerf)}
                       </p>
                     )}
                     {pr && (
                       <p className="text-[10px] text-ember/70">
-                        PR · {pr.weight}kg × {pr.reps}
+                        PR · {formatPerf(metric, unit, pr)}
                         {prHint && (
                           <span className={prHint.startsWith('+') ? 'ml-1 font-medium text-glow' : 'ml-1 text-ember/50'}>
                             · {prHint}
@@ -387,10 +401,13 @@ export default function Session() {
               {entry.sets.length > 0 && (
                 <ul className="mt-4 space-y-2">
                   {entry.sets.map((set, setIndex) => {
-                    const isNewPR = pr &&
-                      (parseFloat(set.weight) || 0) > 0 &&
-                      ((parseFloat(set.weight) || 0) > pr.weight ||
-                       ((parseFloat(set.weight) || 0) === pr.weight && (parseFloat(set.reps) || 0) > pr.reps))
+                    const setW = parseFloat(set.weight) || 0
+                    const setR = parseFloat(set.reps) || 0
+                    const isNewPR = pr && (
+                      isCharge
+                        ? setW > 0 && (setW > pr.weight || (setW === pr.weight && setR > pr.reps))
+                        : setR > 0 && setR > pr.reps
+                    )
                     return (
                       <li
                         key={setIndex}
@@ -402,38 +419,61 @@ export default function Session() {
                           {setIndex + 1}
                         </span>
 
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={set.reps}
-                          onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: sanitizeInt(e.target.value) })}
-                          placeholder="reps"
-                          className={`w-16 rounded-md border px-2 py-1.5 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
-                            set.validated
-                              ? 'border-forge-light/50 bg-charcoal/50 text-ash'
-                              : 'border-forge-light bg-charcoal text-cream'
-                          }`}
-                        />
-                        <span className="text-xs text-ash">×</span>
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            pattern="[0-9]*\.?[0-9]*"
-                            value={set.weight}
-                            onChange={(e) => handleUpdateSet(entryIndex, setIndex, { weight: sanitizeDecimal(e.target.value) })}
-                            placeholder="poids"
-                            className={`w-full rounded-md border px-2 py-1.5 pr-8 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
-                              set.validated
-                                ? 'border-forge-light/50 bg-charcoal/50 text-ash'
-                                : 'border-forge-light bg-charcoal text-cream'
-                            }`}
-                          />
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ash">
-                            kg
-                          </span>
-                        </div>
+                        {isCharge ? (
+                          <>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={set.reps}
+                              onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: sanitizeInt(e.target.value) })}
+                              placeholder="reps"
+                              className={`w-16 rounded-md border px-2 py-1.5 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
+                                set.validated
+                                  ? 'border-forge-light/50 bg-charcoal/50 text-ash'
+                                  : 'border-forge-light bg-charcoal text-cream'
+                              }`}
+                            />
+                            <span className="text-xs text-ash">×</span>
+                            <div className="relative flex-1">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
+                                value={set.weight}
+                                onChange={(e) => handleUpdateSet(entryIndex, setIndex, { weight: sanitizeDecimal(e.target.value) })}
+                                placeholder="poids"
+                                className={`w-full rounded-md border px-2 py-1.5 pr-8 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
+                                  set.validated
+                                    ? 'border-forge-light/50 bg-charcoal/50 text-ash'
+                                    : 'border-forge-light bg-charcoal text-cream'
+                                }`}
+                              />
+                              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ash">
+                                kg
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="relative flex-1">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={set.reps}
+                              onChange={(e) => handleUpdateSet(entryIndex, setIndex, { reps: sanitizeInt(e.target.value) })}
+                              placeholder={metric === 'temps' ? 'durée' : 'répétitions'}
+                              className={`w-full rounded-md border px-2 py-1.5 pr-12 text-center text-base placeholder:text-ash/60 focus:border-ember focus:outline-none ${
+                                set.validated
+                                  ? 'border-forge-light/50 bg-charcoal/50 text-ash'
+                                  : 'border-forge-light bg-charcoal text-cream'
+                              }`}
+                            />
+                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ash">
+                              {valUnit}
+                            </span>
+                          </div>
+                        )}
                         {isNewPR && (
                           <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-ember">
                             PR

@@ -1,31 +1,45 @@
 import { useMemo, useState } from 'react'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
-import { findExerciseById } from '../../domain/exercises'
+import { findExerciseById, getMetric, getMetricUnit } from '../../domain/exercises'
 import { getPersonalRecord } from '../../storage/sessions'
+import { formatPerf, metricValueUnit } from '../../lib/format'
 import ProgressChart from '../../components/ui/ProgressChart'
 import TrainingHeatmap from '../../components/ui/TrainingHeatmap'
 
 function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack }) {
   const [selectedDay, setSelectedDay] = useState(null)
+  const metric = getMetric(selectedExoId)
+  const unit = getMetricUnit(selectedExoId)
+  const isCharge = metric === 'charge'
+  const valUnit = metricValueUnit(metric, unit)
+  const chartLabel = isCharge
+    ? 'Poids max par séance (kg)'
+    : metric === 'temps'
+      ? `Meilleure durée par séance (${valUnit})`
+      : 'Meilleures reps par séance'
 
   const progressionData = useMemo(() => {
+    // Valeur tracée : poids max (charge) ou valeur principale max (reps/temps).
+    // La clé reste `maxWeight` car c'est ce que lit ProgressChart.
     return sessions
       .filter((s) => s.entries.some((e) => e.exerciseId === selectedExoId))
       .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt))
       .slice(-10)
       .map((s) => {
         const entry = s.entries.find((e) => e.exerciseId === selectedExoId)
-        const maxWeight = Math.max(0, ...entry.sets.map((set) => parseFloat(set.weight) || 0))
+        const value = isCharge
+          ? Math.max(0, ...entry.sets.map((set) => parseFloat(set.weight) || 0))
+          : Math.max(0, ...entry.sets.map((set) => parseFloat(set.reps) || 0))
         return {
           date: new Date(s.startedAt).toLocaleDateString('fr-FR', {
             day: 'numeric',
             month: 'short',
           }),
-          maxWeight,
+          maxWeight: value,
         }
       })
       .filter((d) => d.maxWeight > 0)
-  }, [sessions, selectedExoId])
+  }, [sessions, selectedExoId, isCharge])
 
   const selectedPR = useMemo(
     () => getPersonalRecord(selectedExoId, sessions),
@@ -56,13 +70,18 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
       for (const set of entry.sets) {
         const w = parseFloat(set.weight) || 0
         const r = parseFloat(set.reps) || 0
-        if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
-          best = { weight: w, reps: r }
+        if (r === 0 && w === 0) continue
+        if (isCharge) {
+          if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
+            best = { weight: w, reps: r }
+          }
+        } else if (!best || r > best.reps) {
+          best = { weight: 0, reps: r }
         }
       }
     }
     return best
-  }, [sessions, selectedExoId, selectedDay])
+  }, [sessions, selectedExoId, selectedDay, isCharge])
 
   return (
     <div>
@@ -82,7 +101,7 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
           <>
             <div className="mt-4">
               <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash/50">
-                Poids max par séance (kg)
+                {chartLabel}
               </p>
               <ProgressChart data={progressionData} />
             </div>
@@ -91,7 +110,7 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">Record</p>
                   <p className="mt-1 text-sm font-medium text-ember">
-                    {selectedPR.weight}kg × {selectedPR.reps}
+                    {formatPerf(metric, unit, selectedPR)}
                   </p>
                 </div>
                 <div>
@@ -106,8 +125,8 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
         ) : (
           <p className="mt-3 text-xs text-ash/60">
             {progressionData.length === 1
-              ? '1 séance avec ce poids. Reviens après quelques séances pour voir ta progression.'
-              : 'Exercice sans charge enregistrée — pas de courbe de progression.'}
+              ? '1 séance enregistrée. Reviens après quelques séances pour voir ta progression.'
+              : 'Pas encore assez de données pour tracer une courbe.'}
           </p>
         )}
         <div className="mt-5 border-t border-forge-light/40 pt-4">
@@ -134,7 +153,7 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
               <span className="text-ash/30">·</span>
               {dayPR ? (
                 <p className="text-sm font-medium text-ember">
-                  {dayPR.weight > 0 ? `${dayPR.weight} kg × ${dayPR.reps}` : `${dayPR.reps} reps`}
+                  {formatPerf(metric, unit, dayPR)}
                 </p>
               ) : (
                 <p className="text-[10px] text-ash/50">aucun set enregistré</p>

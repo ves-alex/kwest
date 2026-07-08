@@ -1,6 +1,7 @@
 import { pushSync } from '../lib/sync'
 import { SESSIONS_KEY as STORAGE_KEY, ACTIVE_KEY, RECENTS_KEY } from './keys'
 import { genId } from '../lib/id'
+import { getMetric } from '../domain/exercises'
 
 // Migration idempotente : les sessions terminées AVANT l'activation de la validation
 // stricte ont des sets avec `validated: false` (défaut hérité du sprint UX). On les
@@ -166,8 +167,11 @@ export function removeSetFromEntry(entryIndex, setIndex) {
   return active
 }
 
-// Retourne le meilleur set de tous les temps pour un exercice (critère : poids max, puis reps)
+// Retourne le meilleur set de tous les temps pour un exercice.
+// - Charge : critère poids max, puis reps.
+// - Répétitions / Durée : critère valeur principale (reps porte la durée) la plus haute.
 export function getPersonalRecord(exerciseId, sessions) {
+  const isCharge = getMetric(exerciseId) === 'charge'
   let best = null
   for (const s of sessions) {
     const entry = s.entries.find((e) => e.exerciseId === exerciseId)
@@ -175,8 +179,13 @@ export function getPersonalRecord(exerciseId, sessions) {
     for (const set of entry.sets) {
       const w = parseFloat(set.weight) || 0
       const r = parseFloat(set.reps) || 0
-      if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
-        best = { weight: w, reps: r }
+      if (r === 0 && w === 0) continue
+      if (isCharge) {
+        if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
+          best = { weight: w, reps: r }
+        }
+      } else if (!best || r > best.reps) {
+        best = { weight: 0, reps: r }
       }
     }
   }

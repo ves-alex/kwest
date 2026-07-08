@@ -1,4 +1,4 @@
-import { getDifficulty, getBodyweightFactor } from './exercises'
+import { getDifficulty, getBodyweightFactor, getMetric } from './exercises'
 
 // --- Monnaie : Runes d'Effort ---
 
@@ -6,19 +6,20 @@ const DIVISOR = 50
 const MAX_SET_RUNES = 30    // plafond par série (un vrai 5RM lourd ≈ 14 runes)
 const MAX_SESSION_RUNES = 400  // plafond par séance
 
-// Runes gagnées pour une série
-// - Avec poids : floor(poids × reps × difficulté / 50), plafonné à MAX_SET_RUNES
-// - Sans poids (poids du corps) : floor(reps × bodyweightFactor)
+// Runes gagnées pour une série. `set.reps` porte la valeur principale : nombre de
+// répétitions, ou durée (sec/min) pour un exo 'temps'.
+// - Charge avec poids : floor(poids × reps × difficulté / 50), plafonné à MAX_SET_RUNES
+// - Sinon (reps seules, temps, ou charge sans lest) : floor(valeur × bodyweightFactor)
 export function computeSetRunes(set, exerciseId) {
-  const reps = parseFloat(set.reps) || 0
-  const weight = parseFloat(set.weight) || 0
-  if (reps === 0) return 0
+  const primary = parseFloat(set.reps) || 0
+  if (primary === 0) return 0
 
-  if (weight > 0) {
-    const raw = Math.floor((weight * reps * getDifficulty(exerciseId)) / DIVISOR)
+  const weight = parseFloat(set.weight) || 0
+  if (getMetric(exerciseId) === 'charge' && weight > 0) {
+    const raw = Math.floor((weight * primary * getDifficulty(exerciseId)) / DIVISOR)
     return Math.min(raw, MAX_SET_RUNES)
   }
-  return Math.min(Math.floor(reps * getBodyweightFactor(exerciseId)), MAX_SET_RUNES)
+  return Math.min(Math.floor(primary * getBodyweightFactor(exerciseId)), MAX_SET_RUNES)
 }
 
 // Un set compte s'il est explicitement validé (true) OU d'une ancienne session sans le champ (undefined).
