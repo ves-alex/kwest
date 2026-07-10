@@ -50,8 +50,15 @@ export function buildCoachSummary(sessions, { weeks = 8, now = Date.now() } = {}
     .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt))
 
   if (period.length === 0) {
-    return { vide: true, semaines: weeks }
+    return { vide: true }
   }
+
+  // Fenêtre RÉELLE couverte : nombre de semaines calendaires de la 1re séance
+  // connue jusqu'à maintenant (l'app est peut-être récente). Calculée en semaines
+  // calendaires, comme semainesActives, pour rester cohérent (actives ≤ analysées).
+  const firstMonday = new Date(weekKey(period[0].startedAt)).getTime()
+  const nowMonday = new Date(weekKey(new Date(now))).getTime()
+  const semainesAnalysees = Math.round((nowMonday - firstMonday) / WEEK_MS) + 1
 
   // --- Stats globales ---
   const durations = period.map((s) => (new Date(s.endedAt) - new Date(s.startedAt)) / 60000)
@@ -117,9 +124,9 @@ export function buildCoachSummary(sessions, { weeks = 8, now = Date.now() } = {}
     .slice(0, 8)
 
   return {
-    semaines: weeks,
+    semainesAnalysees, // durée réelle couverte depuis la 1re séance connue
     totalSeances: period.length,
-    semainesActives, // sur combien des `weeks` semaines il s'est entraîné
+    semainesActives, // sur combien de ces semaines il s'est entraîné
     dureeMoyenneMin,
     rpeMoyen,
     volumeParGroupe,
