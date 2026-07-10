@@ -1,9 +1,10 @@
 import { loadSessions } from '../storage/sessions'
 import { buildCoachSummary } from '../domain/coachSummary'
 
-// Prépare le résumé des séances et le soumet au serveur du Forgeron (api/coach).
-// Renvoie le texte du conseil, ou lève une erreur lisible pour l'utilisateur.
-export async function askCoach() {
+// Envoie le fil de discussion + le résumé des séances au serveur du Forgeron.
+// `messages` : [{ role: 'user' | 'assistant', content }]. Renvoie le texte de
+// la réponse, ou lève une erreur lisible pour l'utilisateur.
+export async function askCoach(messages) {
   const summary = buildCoachSummary(loadSessions())
 
   let res
@@ -11,7 +12,7 @@ export async function askCoach() {
     res = await fetch('/api/coach', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary }),
+      body: JSON.stringify({ summary, messages }),
     })
   } catch {
     throw new Error('Connexion impossible. Vérifie ton réseau et réessaie.')
@@ -21,5 +22,5 @@ export async function askCoach() {
   if (!res.ok) {
     throw new Error(data.error || 'Le Forgeron est indisponible pour le moment.')
   }
-  return data.conseil
+  return data.reponse
 }
