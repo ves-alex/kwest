@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Hammer, Loader2, Send } from 'lucide-react'
 import { askCoach } from '../../lib/coach'
 import RichText from '../../components/ui/RichText'
@@ -15,6 +15,13 @@ export default function CoachCard() {
 
   const started = messages.length > 0
   const visible = messages.slice(1) // on masque l'amorce du bilan
+
+  // Garde le dernier message visible : défile le cadre vers le bas à chaque tour.
+  const scrollRef = useRef(null)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [messages, loading])
 
   const runConsult = async () => {
     const init = [{ role: 'user', content: BILAN_PROMPT }]
@@ -71,7 +78,10 @@ export default function CoachCard() {
       )}
 
       {started && (
-        <div className="mt-4 space-y-3">
+        <div
+          ref={scrollRef}
+          className="mt-4 max-h-[45vh] space-y-3 overflow-y-auto pr-1"
+        >
           {visible.map((m, i) =>
             m.role === 'assistant' ? (
               <div key={i} className="border-l-2 border-ember/50 pl-3">
