@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { findExerciseById, GROUPS } from '../../domain/exercises'
 import TrainingHeatmap from '../../components/ui/TrainingHeatmap'
+import CoachCard from './CoachCard'
 
 function getMonday(d) {
   const day = d.getDay()
@@ -83,6 +84,9 @@ export default function StatsOverview({ sessions, trainedSet }) {
 
   return (
     <div className="space-y-4">
+      {/* Coaching IA */}
+      <CoachCard />
+
       {/* Heatmap */}
       <div className="rounded-2xl border border-forge-light bg-forge p-5">
         <p className="mb-3 text-[9px] uppercase tracking-[0.25em] text-ash/70">
