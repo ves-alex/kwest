@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useOutlet } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { loadPlayer } from '../storage/player'
+import { FOND_STYLES } from '../theme/fonds'
 import BottomTabBar from './BottomTabBar'
 
 export default function Layout() {
@@ -19,18 +20,13 @@ export default function Layout() {
   return (
     <div className="relative min-h-screen">
       {/* Fond cosmétique global, fixe au viewport */}
-      {fondId === 'fond-forge-silencieuse' && (
-        <>
-          <div
-            className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_50%_95%,_var(--color-ember)_0%,_transparent_55%)] opacity-[0.5]"
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-[linear-gradient(to_bottom,_var(--color-charcoal)_0%,_transparent_100%)] opacity-80"
-            aria-hidden
-          />
-        </>
-      )}
+      {(FOND_STYLES[fondId] ?? []).map((layer, i) => (
+        <div
+          key={i}
+          className={`pointer-events-none fixed ${layer}`}
+          aria-hidden
+        />
+      ))}
 
       <main
         className="relative"
