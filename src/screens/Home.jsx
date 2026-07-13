@@ -213,21 +213,7 @@ export default function Home() {
                 {unlocked.size} / {BADGES.length}
               </p>
             </div>
-            <ul
-              className="mt-4 grid grid-cols-5 gap-2"
-              onTouchStart={(e) => {
-                const t = e.touches[0]
-                const el = document.elementFromPoint(t.clientX, t.clientY)
-                const btn = el?.closest('[data-badge-id]')
-                if (btn) setSelectedBadge(btn.dataset.badgeId)
-              }}
-              onTouchMove={(e) => {
-                const t = e.touches[0]
-                const el = document.elementFromPoint(t.clientX, t.clientY)
-                const btn = el?.closest('[data-badge-id]')
-                if (btn) setSelectedBadge(btn.dataset.badgeId)
-              }}
-            >
+            <ul className="mt-4 grid grid-cols-5 gap-2">
               {BADGES.map((b) => {
                 const Icon = b.Icon
                 const isUnlocked = unlocked.has(b.id)
@@ -236,7 +222,6 @@ export default function Home() {
                   <li key={b.id}>
                     <button
                       type="button"
-                      data-badge-id={b.id}
                       onClick={() => setSelectedBadge(isSelected ? null : b.id)}
                       onMouseEnter={() => setSelectedBadge(b.id)}
                       aria-label={b.name}
