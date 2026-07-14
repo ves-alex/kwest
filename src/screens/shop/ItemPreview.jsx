@@ -1,4 +1,5 @@
 import { RARITIES, FOND_AVATAR_GRADIENTS } from '../../domain/cosmetics'
+import { FOND_STYLES } from '../../theme/fonds'
 
 // Preview visuel d'un cosmétique — utilisé dans les cards du shop et dans la sheet de détail.
 export default function ItemPreview({ c, player, size = 'sm' }) {
@@ -82,7 +83,20 @@ export default function ItemPreview({ c, player, size = 'sm' }) {
     )
   }
 
-  // fond de page
+  // fond de page — miniature fidèle : mêmes couches que le rendu plein écran de Layout
+  const fondLayers = FOND_STYLES[c.id]
+  if (fondLayers) {
+    return (
+      <div
+        className={`relative ${smDim ? 'h-14 w-full' : 'h-20 w-full'} overflow-hidden rounded-lg border border-forge-light/30 bg-charcoal`}
+      >
+        {fondLayers.map((layer, i) => (
+          <div key={i} className={`pointer-events-none absolute ${layer}`} aria-hidden />
+        ))}
+      </div>
+    )
+  }
+
   const colorClass = RARITIES[c.rarity].color
   return (
     <div
