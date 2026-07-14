@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Pencil, Flame, Settings as SettingsIcon, Sun, Moon, Star } from 'lucide-react'
+import { Pencil, Flame, Settings as SettingsIcon, Star } from 'lucide-react'
 import { loadPlayer, getBalance } from '../storage/player'
 import { loadSessions } from '../storage/sessions'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
 import { computeWeeklyStats } from '../domain/streak'
-import { loadTheme, toggleTheme } from '../lib/theme'
 import { findCosmeticById } from '../domain/cosmetics'
 import { BADGES, findBadgeById } from '../domain/badges'
 import PixelAvatar from '../components/ui/PixelAvatar'
@@ -18,11 +17,6 @@ export default function Home() {
   const [dressingOpen, setDressingOpen] = useState(false)
   const refugeFrameRef = useRef(null)
   const [frameDims, setFrameDims] = useState(null)
-  const [theme, setThemeState] = useState(loadTheme)
-
-  const handleToggleTheme = () => {
-    setThemeState(toggleTheme())
-  }
   useEffect(() => {
     const el = refugeFrameRef.current
     if (!el) return
@@ -66,19 +60,6 @@ export default function Home() {
           >
             <SettingsIcon size={15} className="translate-y-[0.5px]" />
           </Link>
-
-          <button
-            type="button"
-            onClick={handleToggleTheme}
-            className="absolute right-3 top-14 z-[4] flex h-8 w-8 items-center justify-center rounded-full border border-ember/50 bg-charcoal/60 text-ash/80 transition-colors hover:border-ember hover:bg-charcoal hover:text-ember"
-            aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-          >
-            {theme === 'dark' ? (
-              <Sun size={15} className="translate-y-[0.5px]" />
-            ) : (
-              <Moon size={15} className="translate-y-[0.5px]" />
-            )}
-          </button>
 
           <div className="px-6 pb-10 pt-10 text-center">
             <header>
