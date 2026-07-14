@@ -86,6 +86,14 @@ export const COSMETICS = [
     price: 600,
     description: 'Un atelier sombre, une enclume froide. Ton Refuge change de visage.',
   },
+  {
+    id: 'fond-nuit-ascension',
+    name: "Nuit d'Ascension",
+    type: 'fond',
+    rarity: 'ascendant',
+    price: 1200,
+    description: "Une clarté d'argent tombe des sommets. Le froid des légendes.",
+  },
   // Skins — 1 offerte à l'onboarding selon le genre choisi
   // brut 80◈ · forge 300◈ · ascendant 600◈
   {
