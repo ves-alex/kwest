@@ -11,6 +11,7 @@ import {
 import { RUNE_SYMBOL } from '../domain/economy'
 import ShopCard from './shop/ShopCard'
 import ShopItemSheet from './shop/ShopItemSheet'
+import PrestigeForge from './shop/PrestigeForge'
 
 const SECTIONS = [
   { type: 'skin', label: 'Apparences' },
@@ -142,6 +143,8 @@ export default function Shop() {
             </section>
           )
         })}
+
+        <PrestigeForge player={player} balance={balance} onForged={setPlayer} />
       </div>
 
       <ShopItemSheet

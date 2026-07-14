@@ -12,6 +12,7 @@ const DEFAULT_PLAYER = {
   cosmeticsOwned: [],
   cosmeticsEquipped: {},
   badgesUnlocked: [],
+  prestigeStars: 0,
 }
 
 export function setWeeklyGoal(n) {
@@ -99,6 +100,17 @@ export function buyCosmetic(id, price, type) {
   p.cosmeticsOwned = [...p.cosmeticsOwned, id]
   // Équipe automatiquement (remplace l'ancien du même type s'il existe)
   p.cosmeticsEquipped = { ...p.cosmeticsEquipped, [type]: id }
+  savePlayer(p)
+  return p
+}
+
+// Prestige : sacrifie `cost` runes contre une Étoile de forge permanente.
+// Répétable à l'infini — c'est le débouché des runes excédentaires post-boutique.
+export function forgePrestigeStar(cost) {
+  const p = loadPlayer()
+  if (getBalance(p) < cost) return null
+  p.runesSpent += cost
+  p.prestigeStars = (p.prestigeStars ?? 0) + 1
   savePlayer(p)
   return p
 }

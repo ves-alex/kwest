@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Pencil, Flame, Settings as SettingsIcon, Sun, Moon } from 'lucide-react'
+import { Pencil, Flame, Settings as SettingsIcon, Sun, Moon, Star } from 'lucide-react'
 import { loadPlayer, getBalance } from '../storage/player'
 import { loadSessions } from '../storage/sessions'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
@@ -111,6 +111,24 @@ export default function Home() {
             <p className="mt-4 font-display text-lg uppercase tracking-[0.25em] text-cream">
               {lvl.title}
             </p>
+            {/* Étoiles de forge — prestige permanent, forgé dans l'Atelier */}
+            {(player.prestigeStars ?? 0) > 0 && (
+              <p
+                className="mt-1.5 flex items-center justify-center gap-1 text-glow"
+                aria-label={`${player.prestigeStars} étoile${player.prestigeStars > 1 ? 's' : ''} de forge`}
+              >
+                {player.prestigeStars <= 5 ? (
+                  Array.from({ length: player.prestigeStars }).map((_, i) => (
+                    <Star key={i} size={11} fill="currentColor" />
+                  ))
+                ) : (
+                  <>
+                    <Star size={11} fill="currentColor" />
+                    <span className="font-mono text-[10px]">× {player.prestigeStars}</span>
+                  </>
+                )}
+              </p>
+            )}
             {equippedTitle && (
               <p className="mt-1 text-xs italic tracking-wider text-glow">
                 « {equippedTitle.name} »

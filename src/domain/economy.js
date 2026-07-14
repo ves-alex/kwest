@@ -99,6 +99,10 @@ export function computeTimerXp(minutes) {
 export const RUNE_SYMBOL = "◈"
 export const RUNE_NAME = "Runes d’Effort"
 
+// Prestige : coût d'une Étoile de forge — sink répétable pour les runes
+// excédentaires une fois la boutique vidée (~8 400 ◈ au total, cap 400/séance).
+export const PRESTIGE_STAR_COST = 5000
+
 // Recalcule totalRunes/totalXp attendus à partir de l'historique complet.
 // Utilisé pour détecter une édition manuelle de localStorage (anti-triche faible).
 export function recomputeTotalsFromSessions(sessions) {
