@@ -50,7 +50,9 @@ export function loadSessions() {
 function writeAll(sessions) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
-    pushSync()
+    // Une séance est trop précieuse pour attendre le debounce : envoi immédiat,
+    // sinon tuer l'app dans les 2 s qui suivent « Terminer » perdait la séance.
+    pushSync({ immediate: true })
     return true
   } catch (err) {
     console.error('[kwest] writeAll failed', err)
@@ -224,5 +226,7 @@ export function trackRecentExercise(exerciseId) {
   recents.unshift(exerciseId)
   try {
     localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)))
-  } catch {}
+  } catch {
+    /* best-effort — perdre les récents n'est pas grave */
+  }
 }
