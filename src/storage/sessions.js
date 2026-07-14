@@ -76,6 +76,20 @@ export function deleteSession(id) {
   return writeAll(sessions)
 }
 
+// Corrige la durée d'une séance terminée : endedAt = startedAt + minutes.
+// Borné 1-600 min — la durée nourrit les gains des séances chrono seul.
+export function updateSessionDuration(id, minutes) {
+  const sessions = loadSessions()
+  const idx = sessions.findIndex((s) => s.id === id)
+  if (idx < 0 || !sessions[idx].endedAt) return null
+  const m = Math.max(1, Math.min(600, Math.round(minutes)))
+  const endedAt = new Date(
+    new Date(sessions[idx].startedAt).getTime() + m * 60000,
+  ).toISOString()
+  sessions[idx] = { ...sessions[idx], endedAt }
+  return writeAll(sessions) ? sessions[idx] : null
+}
+
 export function updateSessionRpe(id, rpe) {
   const sessions = loadSessions()
   const idx = sessions.findIndex((s) => s.id === id)
