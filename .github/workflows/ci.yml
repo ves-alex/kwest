@@ -1,0 +1,23 @@
+# CI : lint + tests + build sur chaque push et PR.
+# Le build n'a pas besoin des secrets Supabase/Anthropic : les env VITE_* sont
+# lues à l'exécution côté client, et la clé Claude ne vit que dans Vercel.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
