@@ -3,16 +3,49 @@ import { PLAYER_KEY, SESSIONS_KEY } from '../storage/keys'
 
 let pushSyncTimer = null
 
+// --- État de synchronisation ---
+// 'synced'  : rien en attente, dernier push réussi
+// 'pending' : un push est programmé ou en vol
+// 'error'   : le dernier push a échoué → des données locales n'ont pas atteint le cloud
+let syncState = 'synced'
+
+function setSyncState(next) {
+  if (syncState === next) return
+  syncState = next
+  window.dispatchEvent(new Event('kwest:sync-change'))
+}
+
+export function getSyncState() {
+  return syncState
+}
+
 async function doPush() {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
+  // Pas de session = rien à pousser nulle part : on repasse au repos pour ne
+  // pas laisser un 'pending' fantôme (badge affiché + retry en boucle).
+  if (!session) { setSyncState('synced'); return }
   try {
     const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
     const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
-    await saveToCloud(session.user.id, player, sessions)
+    const ok = await saveToCloud(session.user.id, player, sessions)
+    setSyncState(ok ? 'synced' : 'error')
   } catch (err) {
     console.error('[kwest] pushSync failed', err)
+    setSyncState('error')
   }
+}
+
+// Relance le push dès que les conditions redeviennent favorables : retour du
+// réseau, ou PWA remise au premier plan (le scénario type : app tuée / gelée à
+// la salle pendant le debounce, données jamais poussées). À appeler une fois.
+export function initSyncRetry() {
+  const retry = () => {
+    if (syncState !== 'synced') pushSync({ immediate: true })
+  }
+  window.addEventListener('online', retry)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') retry()
+  })
 }
 
 // Pousse localStorage → Supabase, debounce 2s pour éviter un appel réseau par action UI.
@@ -20,6 +53,7 @@ async function doPush() {
 // l'app est tuée pendant le délai, la séance n'atteint jamais le cloud.
 export function pushSync({ immediate = false } = {}) {
   clearTimeout(pushSyncTimer)
+  setSyncState('pending')
   if (immediate) {
     doPush()
     return
@@ -107,6 +141,7 @@ export async function saveToCloud(userId, player, sessions) {
     .upsert({ id: userId, player, sessions, updated_at: new Date().toISOString() })
 
   if (error) console.error('[kwest] saveToCloud failed', error)
+  return !error
 }
 
 // Efface la progression cloud + local + déconnecte Google.

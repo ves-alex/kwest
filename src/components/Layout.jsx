@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { loadPlayer } from '../storage/player'
 import { FOND_STYLES } from '../theme/fonds'
 import BottomTabBar from './BottomTabBar'
+import SyncBadge from './ui/SyncBadge'
 
 export default function Layout() {
   const location = useLocation()
@@ -45,6 +46,7 @@ export default function Layout() {
         </AnimatePresence>
       </main>
       <BottomTabBar />
+      <SyncBadge />
     </div>
   )
 }

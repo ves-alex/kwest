@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { loadPlayer } from './storage/player'
 import { migrateSessionsStrictV1 } from './storage/sessions'
 import { supabase } from './lib/supabase'
-import { loadFromCloud } from './lib/sync'
+import { loadFromCloud, initSyncRetry } from './lib/sync'
 import Layout from './components/Layout'
 import Home from './screens/Home'
 import Session from './screens/Session'
@@ -21,6 +21,10 @@ function App() {
   const [player, setPlayer] = useState(null)
 
   useEffect(() => {
+    // Filet de sécurité : repousse les données locales dès que le réseau
+    // revient ou que la PWA repasse au premier plan (push raté à la salle…)
+    initSyncRetry()
+
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         if (!session) {
