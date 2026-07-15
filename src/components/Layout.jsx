@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useLocation, useOutlet } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { loadPlayer } from '../storage/player'
@@ -41,7 +41,9 @@ export default function Layout() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
-            {outlet}
+            {/* Suspense local : un onglet lazy en cours de chargement ne doit
+                pas faire tomber le Layout (tab bar) sur le fallback global */}
+            <Suspense fallback={null}>{outlet}</Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
