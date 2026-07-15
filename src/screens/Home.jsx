@@ -33,6 +33,8 @@ export default function Home() {
   const unlocked = new Set(player.badgesUnlocked ?? [])
   const equippedTitle = findCosmeticById(player.cosmeticsEquipped?.titre)
 
+  // totalRunes sert de signal d'invalidation : il change à chaque séance enregistrée.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendance-signal volontaire
   const sessions = useMemo(() => loadSessions(), [player.totalRunes])
   const weekly = useMemo(() => computeWeeklyStats(sessions), [sessions])
   const goal = player.weeklyGoal ?? 3

@@ -19,7 +19,7 @@ function loadLastDuration() {
   try { return parseInt(localStorage.getItem(REST_DURATION_KEY), 10) || 90 } catch { return 90 }
 }
 function saveLastDuration(d) {
-  try { localStorage.setItem(REST_DURATION_KEY, String(d)) } catch {}
+  try { localStorage.setItem(REST_DURATION_KEY, String(d)) } catch { /* best-effort */ }
 }
 
 function fmt(s) {
@@ -35,10 +35,20 @@ function StateLabel({ running, remaining, duration }) {
   return <span className="text-ash">PAUSE</span>
 }
 
+// Wrapper : le timer n'est monté que lorsqu'il est ouvert. Le remontage fait
+// office de reset (états initiaux), le démontage fait office de nettoyage —
+// pas d'effet de synchronisation isOpen → états.
 export default function RestTimer({ isOpen, onClose, autoStart = false }) {
+  if (!isOpen) return null
+  return <RestTimerInner onClose={onClose} autoStart={autoStart} />
+}
+
+function RestTimerInner({ onClose, autoStart }) {
   const [duration, setDuration] = useState(loadLastDuration)
   const [remaining, setRemaining] = useState(() => loadLastDuration())
-  const [running, setRunning] = useState(false)
+  // Validation d'une série → pastille qui compte directement (autoStart).
+  // Bouton manuel → timer prêt, à démarrer depuis le panneau.
+  const [running, setRunning] = useState(autoStart)
   const [flashing, setFlashing] = useState(false)
   const [customInput, setCustomInput] = useState('')
   const [autoCloseIn, setAutoCloseIn] = useState(null)
@@ -74,27 +84,15 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
     }, 1000)
   }, [])
 
-  // Reset + autoStart quand on ouvre.
-  // Validation d'une série → pastille qui compte directement (autoStart).
-  // Bouton manuel → panneau de réglage déplié pour choisir la durée.
+  // Au montage (= à l'ouverture) : le tap d'ouverture vient de débloquer l'audio.
+  // Au démontage (= à la fermeture) : plus aucun interval ne doit survivre.
   useEffect(() => {
-    if (isOpen) {
-      const d = loadLastDuration()
-      setDuration(d)
-      setRemaining(d)
-      setFlashing(false)
-      setCustomInput('')
-      clearAutoClose()
-      setRunning(autoStart)
-      setExpanded(false) // toujours la pastille en premier, jamais le panneau
-      unlockAudio() // le tap d'ouverture vient de débloquer l'audio
-    } else {
+    unlockAudio()
+    return () => {
       clearInterval(intervalRef.current)
-      setRunning(false)
-      setExpanded(false)
-      clearAutoClose()
+      clearInterval(autoCloseRef.current)
     }
-  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Countdown
   useEffect(() => {
@@ -173,8 +171,6 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
 
   const progress = duration > 0 ? remaining / duration : 0
   const isDone = remaining === 0
-
-  if (!isOpen) return null
 
   return (
     // Conteneur non-bloquant : laisse passer les taps vers la séance derrière.

@@ -16,7 +16,7 @@ import {
   getPersonalRecord,
 } from '../storage/sessions'
 import { loadPlayer, savePlayer } from '../storage/player'
-import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
+import { computeLevel } from '../domain/economy'
 import { evaluateBadges } from '../domain/badges'
 import { findExerciseById, EQUIPMENT, getMetric, getMetricUnit } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
@@ -53,7 +53,7 @@ const PHANTOM_MAX_REPS = 4
 export default function Session() {
   const [active, setActive] = useState(loadActiveSession)
   const [recap, setRecap] = useState(null)
-  const [elapsed, setElapsed] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   const [showRestTimer, setShowRestTimer] = useState(false)
   const [restAutoStart, setRestAutoStart] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
@@ -77,14 +77,14 @@ export default function Session() {
     return map
   }, [active, historySessions])
 
+  // Le chrono : on ne stocke que l'horloge, `elapsed` est dérivé au render.
   useEffect(() => {
-    if (!active) { setElapsed(0); return }
-    const start = new Date(active.startedAt).getTime()
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000))
-    tick()
-    const id = setInterval(tick, 1000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [active?.id])
+  }, [])
+  const elapsed = active
+    ? Math.max(0, Math.floor((now - new Date(active.startedAt).getTime()) / 1000))
+    : 0
 
   const handleStart = () => {
     const s = createSession()

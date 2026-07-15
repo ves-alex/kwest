@@ -1,35 +1,37 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { motion } from 'motion/react'
 import { findCosmeticById } from '../../domain/cosmetics'
 import { RARITY_BORDER, RARITY_GLOW } from '../../theme/rarity'
 
 const DURATIONS = [10, 13, 11, 15, 12, 14]
 
+// Point aléatoire dans la zone, hors du rayon d'exclusion autour du personnage
+function randomTarget(zoneW, zoneH) {
+  const margin = 16
+  const bubble = 48
+  // Centre approximatif de l'avatar dans le cadre
+  const avoidCx = zoneW / 2
+  const avoidCy = zoneH * 0.55
+  const avoidR = 95  // rayon d'exclusion autour du personnage
+
+  let x, y
+  for (let i = 0; i < 30; i++) {
+    x = margin + Math.random() * Math.max(0, zoneW - bubble - margin * 2)
+    y = margin + Math.random() * Math.max(0, zoneH - bubble - margin * 2)
+    const dx = (x + bubble / 2) - avoidCx
+    const dy = (y + bubble / 2) - avoidCy
+    if (Math.sqrt(dx * dx + dy * dy) >= avoidR) break
+  }
+  return { x, y }
+}
+
 function BadgeBubble({ cosmetic, initialX, initialY, duration, zoneW, zoneH }) {
-  const [target, setTarget] = useState({ x: initialX, y: initialY })
+  // Première cible tirée dès le montage : la dérive démarre immédiatement
+  const [target, setTarget] = useState(() => randomTarget(zoneW, zoneH))
 
   const drift = useCallback(() => {
-    const margin = 16
-    const bubble = 48
-    // Centre approximatif de l'avatar dans le cadre
-    const avoidCx = zoneW / 2
-    const avoidCy = zoneH * 0.55
-    const avoidR = 95  // rayon d'exclusion autour du personnage
-
-    let x, y
-    for (let i = 0; i < 30; i++) {
-      x = margin + Math.random() * Math.max(0, zoneW - bubble - margin * 2)
-      y = margin + Math.random() * Math.max(0, zoneH - bubble - margin * 2)
-      const dx = (x + bubble / 2) - avoidCx
-      const dy = (y + bubble / 2) - avoidCy
-      if (Math.sqrt(dx * dx + dy * dy) >= avoidR) break
-    }
-    setTarget({ x, y })
+    setTarget(randomTarget(zoneW, zoneH))
   }, [zoneW, zoneH])
-
-  useEffect(() => {
-    drift()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <motion.div
