@@ -190,7 +190,13 @@ export async function loadFromCloud(userId) {
         .from('sessions')
         .upsert(blobSessions.map((s) => rowOf(userId, s)))
       if (!migErr) {
-        await supabase.from('user_data').update({ sessions: null }).eq('id', userId)
+        // Ne JAMAIS avaler cette erreur : un blob qui refuse de se vider
+        // (ex : colonne NOT NULL historique) doit se voir dans la console.
+        const { error: clearErr } = await supabase
+          .from('user_data')
+          .update({ sessions: null })
+          .eq('id', userId)
+        if (clearErr) console.error('[kwest] vidage du blob raté (retentera)', clearErr)
         console.log(`[kwest] migration blob → table sessions : ${blobSessions.length} séance(s)`)
         blobSessions = []
       }

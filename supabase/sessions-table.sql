@@ -20,3 +20,8 @@ create policy "Users manage own sessions"
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- La colonne blob historique doit accepter null : c'est ainsi que l'app marque
+-- la migration comme terminée (sinon le SET sessions = null viole le NOT NULL
+-- d'origine et échoue en silence).
+alter table public.user_data alter column sessions drop not null;
