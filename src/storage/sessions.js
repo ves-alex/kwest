@@ -1,4 +1,4 @@
-import { pushSync } from '../lib/sync'
+import { pushSessions, deleteSessionCloud } from '../lib/sync'
 import { SESSIONS_KEY as STORAGE_KEY, ACTIVE_KEY, RECENTS_KEY } from './keys'
 import { genId } from '../lib/id'
 import { getMetric } from '../domain/exercises'
@@ -12,20 +12,24 @@ export function migrateSessionsStrictV1() {
     const raw = localStorage.getItem(STORAGE_KEY)
     const sessions = raw ? JSON.parse(raw) : []
     let changed = 0
+    const touched = []
     for (const s of sessions) {
       if (!s.endedAt) continue
+      let sessionChanged = false
       for (const entry of s.entries) {
         for (const set of entry.sets) {
           if (set.validated === false && parseFloat(set.reps) > 0) {
             set.validated = true
+            sessionChanged = true
             changed++
           }
         }
       }
+      if (sessionChanged) touched.push(s)
     }
     if (changed > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
-      pushSync() // push le patch au cloud pour ne pas re-migrer à chaque login
+      pushSessions(touched) // push le patch au cloud pour ne pas re-migrer à chaque login
       console.log(`[kwest] migrateSessionsStrictV1 : ${changed} sets remontés à validated:true`)
     }
   } catch (err) {
@@ -47,12 +51,11 @@ export function loadSessions() {
   }
 }
 
+// Écrit localStorage uniquement — le push cloud est unitaire, au niveau des
+// fonctions qui savent QUELLE séance a changé.
 function writeAll(sessions) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
-    // Une séance est trop précieuse pour attendre le debounce : envoi immédiat,
-    // sinon tuer l'app dans les 2 s qui suivent « Terminer » perdait la séance.
-    pushSync({ immediate: true })
     return true
   } catch (err) {
     console.error('[kwest] writeAll failed', err)
@@ -68,12 +71,19 @@ export function saveSession(session) {
   } else {
     sessions.push(session)
   }
-  return writeAll(sessions)
+  const ok = writeAll(sessions)
+  // Une séance est trop précieuse pour attendre : envoi immédiat de SA ligne,
+  // sinon tuer l'app juste après « Terminer » perdait la séance.
+  if (ok) pushSessions([session])
+  return ok
 }
 
 export function deleteSession(id) {
   const sessions = loadSessions().filter((s) => s.id !== id)
-  return writeAll(sessions)
+  const ok = writeAll(sessions)
+  // DELETE définitif côté cloud (tombstone rejouée si hors-ligne)
+  if (ok) deleteSessionCloud(id)
+  return ok
 }
 
 // Corrige la durée d'une séance terminée : endedAt = startedAt + minutes.
@@ -87,7 +97,9 @@ export function updateSessionDuration(id, minutes) {
     new Date(sessions[idx].startedAt).getTime() + m * 60000,
   ).toISOString()
   sessions[idx] = { ...sessions[idx], endedAt }
-  return writeAll(sessions) ? sessions[idx] : null
+  if (!writeAll(sessions)) return null
+  pushSessions([sessions[idx]])
+  return sessions[idx]
 }
 
 export function updateSessionRpe(id, rpe) {
@@ -95,7 +107,9 @@ export function updateSessionRpe(id, rpe) {
   const idx = sessions.findIndex((s) => s.id === id)
   if (idx < 0) return false
   sessions[idx] = { ...sessions[idx], rpe }
-  return writeAll(sessions)
+  const ok = writeAll(sessions)
+  if (ok) pushSessions([sessions[idx]])
+  return ok
 }
 
 export function createSession() {

@@ -1,12 +1,21 @@
 import { supabase } from './supabase'
-import { PLAYER_KEY, SESSIONS_KEY } from '../storage/keys'
+import { PLAYER_KEY, SESSIONS_KEY, DELETED_KEY } from '../storage/keys'
 
-let pushSyncTimer = null
+// ============================================================================
+// Modèle cloud : une ligne par séance.
+// - table `sessions`  : PK (user_id, id), data JSONB — upserts/deletes unitaires,
+//   plus jamais de blob complet sur le réseau.
+// - table `user_data` : player JSONB uniquement. Le champ historique `sessions`
+//   (blob) est migré vers la table au premier lancement, puis remis à null.
+// localStorage reste la source de vérité locale ; le cloud est un miroir.
+// ============================================================================
+
+let playerTimer = null
 
 // --- État de synchronisation ---
-// 'synced'  : rien en attente, dernier push réussi
-// 'pending' : un push est programmé ou en vol
-// 'error'   : le dernier push a échoué → des données locales n'ont pas atteint le cloud
+// 'synced'  : rien en attente, dernière opération réussie
+// 'pending' : une opération est programmée ou en vol
+// 'error'   : une opération a échoué → resyncAll() rejouera tout (retry auto)
 let syncState = 'synced'
 
 function setSyncState(next) {
@@ -19,28 +28,139 @@ export function getSyncState() {
   return syncState
 }
 
-async function doPush() {
+async function getUserId() {
   const { data: { session } } = await supabase.auth.getSession()
-  // Pas de session = rien à pousser nulle part : on repasse au repos pour ne
-  // pas laisser un 'pending' fantôme (badge affiché + retry en boucle).
-  if (!session) { setSyncState('synced'); return }
+  return session?.user?.id ?? null
+}
+
+function rowOf(userId, s) {
+  return { user_id: userId, id: s.id, data: s, updated_at: new Date().toISOString() }
+}
+
+// --- Tombstones : suppressions cloud à rejouer ---
+// Une séance supprimée hors-ligne resterait au cloud et « ressusciterait » à la
+// fusion suivante. On note l'id jusqu'à confirmation du DELETE.
+function loadTombstones() {
+  try { return JSON.parse(localStorage.getItem(DELETED_KEY) ?? '[]') } catch { return [] }
+}
+function saveTombstones(ids) {
+  try { localStorage.setItem(DELETED_KEY, JSON.stringify(ids)) } catch { /* best-effort */ }
+}
+function addTombstone(id) {
+  saveTombstones([...new Set([...loadTombstones(), id])])
+}
+function removeTombstones(ids) {
+  const gone = new Set(ids)
+  saveTombstones(loadTombstones().filter((x) => !gone.has(x)))
+}
+
+async function flushTombstones(userId) {
+  const ids = loadTombstones()
+  if (ids.length === 0) return true
+  const { error } = await supabase.from('sessions').delete().eq('user_id', userId).in('id', ids)
+  if (error) {
+    console.error('[kwest] flushTombstones failed', error)
+    return false
+  }
+  removeTombstones(ids)
+  return true
+}
+
+// --- Pushes unitaires ---
+
+// Upsert d'une ou plusieurs séances (une ligne chacune). Fire-and-forget côté
+// appelant ; l'état de sync reflète le résultat.
+export async function pushSessions(list) {
+  if (!list?.length) return true
+  setSyncState('pending')
+  const userId = await getUserId()
+  if (!userId) { setSyncState('synced'); return true } // déconnecté : rien à pousser
+  const { error } = await supabase.from('sessions').upsert(list.map((s) => rowOf(userId, s)))
+  if (error) console.error('[kwest] pushSessions failed', error)
+  setSyncState(error ? 'error' : 'synced')
+  return !error
+}
+
+// Suppression définitive au cloud. En cas d'échec (offline…), la tombstone
+// reste posée et sera rejouée par resyncAll / loadFromCloud.
+export async function deleteSessionCloud(id) {
+  addTombstone(id)
+  setSyncState('pending')
+  const userId = await getUserId()
+  if (!userId) { removeTombstones([id]); setSyncState('synced'); return true }
+  const { error } = await supabase.from('sessions').delete().eq('user_id', userId).eq('id', id)
+  if (error) {
+    console.error('[kwest] deleteSessionCloud failed', error)
+    setSyncState('error')
+    return false
+  }
+  removeTombstones([id])
+  setSyncState('synced')
+  return true
+}
+
+// --- Player (debounce 2 s, comme l'historique pushSync) ---
+export function pushPlayer({ immediate = false } = {}) {
+  clearTimeout(playerTimer)
+  setSyncState('pending')
+  if (immediate) {
+    doPushPlayer()
+    return
+  }
+  playerTimer = setTimeout(doPushPlayer, 2000)
+}
+
+async function doPushPlayer() {
+  const userId = await getUserId()
+  // Pas de session = rien à pousser nulle part : retour au repos pour ne pas
+  // laisser un 'pending' fantôme (badge affiché + retry en boucle).
+  if (!userId) { setSyncState('synced'); return }
   try {
     const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
-    const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
-    const ok = await saveToCloud(session.user.id, player, sessions)
-    setSyncState(ok ? 'synced' : 'error')
+    const { error } = await supabase
+      .from('user_data')
+      .upsert({ id: userId, player, updated_at: new Date().toISOString() })
+    if (error) console.error('[kwest] pushPlayer failed', error)
+    setSyncState(error ? 'error' : 'synced')
   } catch (err) {
-    console.error('[kwest] pushSync failed', err)
+    console.error('[kwest] pushPlayer failed', err)
     setSyncState('error')
   }
 }
 
-// Relance le push dès que les conditions redeviennent favorables : retour du
+// --- Réparation : repousse tout l'état local (player + séances + tombstones).
+// Déclenchée par le retry quand une opération unitaire a échoué : on ne sait
+// pas laquelle, donc on réaligne le miroir complet — c'est le cas rare.
+export async function resyncAll() {
+  const userId = await getUserId()
+  if (!userId) { setSyncState('synced'); return }
+  setSyncState('pending')
+  try {
+    const player = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? '{}')
+    const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
+    const okDeletes = await flushTombstones(userId)
+    const { error: playerErr } = await supabase
+      .from('user_data')
+      .upsert({ id: userId, player, updated_at: new Date().toISOString() })
+    let sessionsErr = null
+    if (sessions.length > 0) {
+      ;({ error: sessionsErr } = await supabase
+        .from('sessions')
+        .upsert(sessions.map((s) => rowOf(userId, s))))
+    }
+    setSyncState(okDeletes && !playerErr && !sessionsErr ? 'synced' : 'error')
+  } catch (err) {
+    console.error('[kwest] resyncAll failed', err)
+    setSyncState('error')
+  }
+}
+
+// Relance la sync dès que les conditions redeviennent favorables : retour du
 // réseau, ou PWA remise au premier plan (le scénario type : app tuée / gelée à
-// la salle pendant le debounce, données jamais poussées). À appeler une fois.
+// la salle, push jamais parti). À appeler une fois.
 export function initSyncRetry() {
   const retry = () => {
-    if (syncState !== 'synced') pushSync({ immediate: true })
+    if (syncState !== 'synced') resyncAll()
   }
   window.addEventListener('online', retry)
   document.addEventListener('visibilitychange', () => {
@@ -48,21 +168,86 @@ export function initSyncRetry() {
   })
 }
 
-// Pousse localStorage → Supabase, debounce 2s pour éviter un appel réseau par action UI.
-// `immediate` court-circuite le debounce — indispensable pour la fin de séance : si
-// l'app est tuée pendant le délai, la séance n'atteint jamais le cloud.
-export function pushSync({ immediate = false } = {}) {
-  clearTimeout(pushSyncTimer)
-  setSyncState('pending')
-  if (immediate) {
-    doPush()
-    return
+// --- Chargement au démarrage : migration éventuelle du blob, puis fusion ---
+export async function loadFromCloud(userId) {
+  try {
+    // 1. Player + éventuel blob historique
+    const { data: userRow, error: userErr } = await supabase
+      .from('user_data')
+      .select('player, sessions')
+      .eq('id', userId)
+      .maybeSingle()
+    if (userErr) {
+      console.error('[kwest] loadFromCloud failed', userErr)
+      return false
+    }
+
+    // 2. Migration one-shot du blob → table sessions (idempotente : tant que
+    //    le blob n'est pas nul, on retente ; l'upsert par id ne duplique rien)
+    let blobSessions = userRow?.sessions ?? []
+    if (blobSessions.length > 0) {
+      const { error: migErr } = await supabase
+        .from('sessions')
+        .upsert(blobSessions.map((s) => rowOf(userId, s)))
+      if (!migErr) {
+        await supabase.from('user_data').update({ sessions: null }).eq('id', userId)
+        console.log(`[kwest] migration blob → table sessions : ${blobSessions.length} séance(s)`)
+        blobSessions = []
+      }
+      // migErr → le blob reste source pour cette session, retentera au prochain lancement
+    }
+
+    // 3. Séances côté cloud (+ reliquat de blob si la migration vient d'échouer)
+    const { data: rows, error: sesErr } = await supabase
+      .from('sessions')
+      .select('data')
+      .eq('user_id', userId)
+    if (sesErr) {
+      console.error('[kwest] loadFromCloud failed', sesErr)
+      return false
+    }
+    const byId = new Map()
+    for (const s of blobSessions) byId.set(s.id, s)
+    for (const r of rows ?? []) byId.set(r.data.id, r.data)
+
+    // 4. Suppressions en attente : rejouées avant la fusion pour qu'une séance
+    //    supprimée hors-ligne ne revienne pas
+    const tombstones = new Set(loadTombstones())
+    if (tombstones.size > 0) {
+      await flushTombstones(userId)
+      for (const id of tombstones) byId.delete(id)
+    }
+
+    // 5. Fusion séances : cloud prioritaire par id, locales absentes réinjectées
+    const localSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
+    const localOnly = localSessions.filter((s) => !byId.has(s.id) && !tombstones.has(s.id))
+    const merged = [...byId.values(), ...localOnly]
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(merged))
+    if (localOnly.length > 0) {
+      console.log(`[kwest] loadFromCloud : ${localOnly.length} séance(s) locale(s) réinjectée(s)`)
+      await pushSessions(localOnly)
+    }
+
+    // 6. Player : union des possessions, max des compteurs (les totaux
+    //    runes/XP sont recalculés depuis les sessions par loadPlayer)
+    const localPlayer = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? 'null')
+    const mergedPlayer = userRow?.player ? mergePlayer(userRow.player, localPlayer) : localPlayer
+    if (mergedPlayer) {
+      localStorage.setItem(PLAYER_KEY, JSON.stringify(mergedPlayer))
+      if (!userRow?.player || JSON.stringify(mergedPlayer) !== JSON.stringify(userRow.player)) {
+        pushPlayer({ immediate: true })
+      }
+    }
+
+    return true
+  } catch (err) {
+    console.error('[kwest] loadFromCloud failed', err)
+    return false
   }
-  pushSyncTimer = setTimeout(doPush, 2000)
 }
 
 // Fusionne le player cloud et le player local : union des possessions, max des
-// compteurs. Les totaux runes/XP sont recalculés depuis les sessions par loadPlayer.
+// compteurs. Champs scalaires (gender, weeklyGoal…) : priorité au cloud.
 function mergePlayer(cloud, local) {
   if (!local) return cloud
   return {
@@ -78,84 +263,18 @@ function mergePlayer(cloud, local) {
   }
 }
 
-// Charge les données depuis Supabase et les FUSIONNE avec localStorage.
-// Jamais d'écrasement aveugle : une séance locale absente du cloud (push raté à la
-// salle, app tuée pendant le debounce…) est conservée et renvoyée au cloud.
-export async function loadFromCloud(userId) {
-  const { data, error } = await supabase
-    .from('user_data')
-    .select('player, sessions')
-    .eq('id', userId)
-    .single()
-
-  if (error && error.code !== 'PGRST116') {
-    console.error('[kwest] loadFromCloud failed', error)
-    return false
-  }
-
-  if (data) {
-    try {
-      const cloudSessions = data.sessions ?? []
-      const localSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]')
-      const cloudIds = new Set(cloudSessions.map((s) => s.id))
-      const localOnly = localSessions.filter((s) => !cloudIds.has(s.id))
-      const mergedSessions = [...cloudSessions, ...localOnly]
-
-      const localPlayer = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? 'null')
-      const mergedPlayer = mergePlayer(data.player ?? {}, localPlayer)
-
-      localStorage.setItem(PLAYER_KEY, JSON.stringify(mergedPlayer))
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(mergedSessions))
-
-      // Le local avait de l'avance sur le cloud → on répare le cloud tout de suite
-      if (
-        localOnly.length > 0 ||
-        JSON.stringify(mergedPlayer) !== JSON.stringify(data.player)
-      ) {
-        console.log(
-          `[kwest] loadFromCloud : fusion (${localOnly.length} séance(s) locale(s) réinjectée(s))`,
-        )
-        await saveToCloud(userId, mergedPlayer, mergedSessions)
-      }
-    } catch (err) {
-      // En cas de pépin de fusion, on garde le comportement historique (copie cloud)
-      console.error('[kwest] loadFromCloud merge failed', err)
-      localStorage.setItem(PLAYER_KEY, JSON.stringify(data.player))
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(data.sessions))
-    }
-    return true
-  }
-
-  // Première connexion — migrer les données localStorage existantes
-  const localPlayer = localStorage.getItem(PLAYER_KEY)
-  const localSessions = localStorage.getItem(SESSIONS_KEY)
-  if (localPlayer) {
-    await saveToCloud(userId, JSON.parse(localPlayer), JSON.parse(localSessions ?? '[]'))
-  }
-  return true
-}
-
-export async function saveToCloud(userId, player, sessions) {
-  const { error } = await supabase
-    .from('user_data')
-    .upsert({ id: userId, player, sessions, updated_at: new Date().toISOString() })
-
-  if (error) console.error('[kwest] saveToCloud failed', error)
-  return !error
-}
-
 // Efface la progression cloud + local + déconnecte Google.
 // Note : Supabase ne permet pas de supprimer auth.users depuis le client (nécessite
 // une Edge Function avec service role). Se reconnecter avec le même Google recréera
-// un onboarding vierge (row user_data absente = comme un nouveau compte).
+// un onboarding vierge (rows absentes = comme un nouveau compte).
 export async function deleteAccount() {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
-  const userId = session.user.id
-  const { error } = await supabase.from('user_data').delete().eq('id', userId)
-  if (error) {
-    console.error('[kwest] deleteAccount failed', error)
-    throw error
+  const userId = await getUserId()
+  if (!userId) return
+  const { error: sesErr } = await supabase.from('sessions').delete().eq('user_id', userId)
+  const { error: userErr } = await supabase.from('user_data').delete().eq('id', userId)
+  if (sesErr || userErr) {
+    console.error('[kwest] deleteAccount failed', sesErr ?? userErr)
+    throw sesErr ?? userErr
   }
   localStorage.clear()
   await supabase.auth.signOut()

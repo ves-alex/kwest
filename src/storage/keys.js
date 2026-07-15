@@ -3,3 +3,4 @@ export const SESSIONS_KEY      = 'kwest:sessions'
 export const ACTIVE_KEY        = 'kwest:active-session'
 export const RECENTS_KEY       = 'kwest:recent-exercises'
 export const REST_DURATION_KEY = 'kwest:rest-duration'
+export const DELETED_KEY       = 'kwest:deleted-sessions' // tombstones : suppressions cloud à rejouer

@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { migrateSessionsStrictV1, getPersonalRecord, getLastPerformance } from './sessions'
+import {
+  migrateSessionsStrictV1,
+  getPersonalRecord,
+  getLastPerformance,
+  saveSession,
+  deleteSession,
+  loadSessions,
+} from './sessions'
 import { SESSIONS_KEY } from './keys'
-import { pushSync } from '../lib/sync'
+import { pushSessions, deleteSessionCloud } from '../lib/sync'
 
 // La couche sync (Supabase) n'a rien à faire dans ces tests : on la neutralise.
-vi.mock('../lib/sync', () => ({ pushSync: vi.fn() }))
+vi.mock('../lib/sync', () => ({ pushSessions: vi.fn(), deleteSessionCloud: vi.fn() }))
 
 // Stub localStorage minimal pour l'environnement node
 function stubLocalStorage() {
@@ -39,12 +46,13 @@ describe('migrateSessionsStrictV1', () => {
     ],
   })
 
-  it('remonte à true les sets remplis des séances terminées, et pousse au cloud', () => {
+  it('remonte à true les sets remplis des séances terminées, et pousse les séances touchées', () => {
     localStorage.setItem(SESSIONS_KEY, JSON.stringify([finished()]))
     migrateSessionsStrictV1()
     const [s] = JSON.parse(localStorage.getItem(SESSIONS_KEY))
     expect(s.entries[0].sets.map((x) => x.validated)).toEqual([true, false, true])
-    expect(pushSync).toHaveBeenCalled()
+    expect(pushSessions).toHaveBeenCalledTimes(1)
+    expect(pushSessions.mock.calls[0][0].map((x) => x.id)).toEqual(['s1'])
   })
 
   it('ne touche pas aux séances non clôturées', () => {
@@ -53,7 +61,7 @@ describe('migrateSessionsStrictV1', () => {
     migrateSessionsStrictV1()
     const [s] = JSON.parse(localStorage.getItem(SESSIONS_KEY))
     expect(s.entries[0].sets[0].validated).toBe(false)
-    expect(pushSync).not.toHaveBeenCalled()
+    expect(pushSessions).not.toHaveBeenCalled()
   })
 
   it('idempotente : une deuxième passe ne change rien', () => {
@@ -63,7 +71,24 @@ describe('migrateSessionsStrictV1', () => {
     vi.clearAllMocks()
     migrateSessionsStrictV1()
     expect(localStorage.getItem(SESSIONS_KEY)).toBe(after1)
-    expect(pushSync).not.toHaveBeenCalled()
+    expect(pushSessions).not.toHaveBeenCalled()
+  })
+})
+
+describe('saveSession / deleteSession — pushes unitaires', () => {
+  const s1 = { id: 's1', startedAt: '2026-07-01T10:00:00', endedAt: '2026-07-01T11:00:00', entries: [] }
+
+  it('saveSession écrit localement et pousse SA ligne', () => {
+    expect(saveSession(s1)).toBe(true)
+    expect(loadSessions().map((s) => s.id)).toEqual(['s1'])
+    expect(pushSessions).toHaveBeenCalledWith([s1])
+  })
+
+  it('deleteSession retire localement et demande le DELETE cloud', () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([s1]))
+    expect(deleteSession('s1')).toBe(true)
+    expect(loadSessions()).toEqual([])
+    expect(deleteSessionCloud).toHaveBeenCalledWith('s1')
   })
 })
 

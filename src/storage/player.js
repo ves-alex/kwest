@@ -1,4 +1,4 @@
-import { pushSync } from '../lib/sync'
+import { pushPlayer } from '../lib/sync'
 import { PLAYER_KEY, SESSIONS_KEY } from './keys'
 import { evaluateBadges } from '../domain/badges'
 import { recomputeTotalsFromSessions } from '../domain/economy'
@@ -45,7 +45,7 @@ export function loadPlayer() {
       player.totalRunes = expectedRunes
       player.totalXp = expectedXp
       localStorage.setItem(PLAYER_KEY, JSON.stringify(player))
-      pushSync() // push la correction au cloud
+      pushPlayer() // push la correction au cloud
     }
     return player
   } catch (err) {
@@ -78,7 +78,7 @@ export function savePlayer(player, { evalBadges = true } = {}) {
     }
     localStorage.setItem(PLAYER_KEY, JSON.stringify(toWrite))
     emitPlayerChange()
-    pushSync()
+    pushPlayer()
     return true
   } catch (err) {
     console.error('[kwest] savePlayer failed', err)
