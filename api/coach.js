@@ -1,8 +1,30 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@supabase/supabase-js'
 
 // La clé API vit UNIQUEMENT ici, côté serveur, via la variable d'environnement
 // ANTHROPIC_API_KEY (configurée dans Vercel). Elle n'atteint jamais le navigateur.
 const client = new Anthropic()
+
+// Garde-fous : l'endpoint paie des tokens Claude, on borne ce qu'un client peut envoyer.
+const MAX_MESSAGES = 20
+const MAX_MESSAGE_CHARS = 2000
+const MAX_SUMMARY_CHARS = 20000
+
+// Vérifie le JWT Supabase envoyé par le client. Sans token valide → null.
+// On passe par l'API auth de Supabase (pas de secret supplémentaire à gérer :
+// l'anon key suffit pour valider un access token utilisateur).
+async function verifyUser(req) {
+  const header = req.headers.authorization ?? ''
+  if (!header.startsWith('Bearer ')) return null
+  const token = header.slice('Bearer '.length)
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL,
+    process.env.VITE_SUPABASE_ANON_KEY,
+  )
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data?.user) return null
+  return data.user
+}
 
 const SYSTEM = `Tu es le Forgeron, le mentor d'un pratiquant de musculation dans l'application Kwest (univers RPG "forge nocturne"). Tu observes son travail à l'enclume — ses séances d'entraînement — et tu peux dialoguer avec lui.
 
@@ -33,6 +55,12 @@ export default async function handler(req, res) {
     return
   }
 
+  const user = await verifyUser(req)
+  if (!user) {
+    res.status(401).json({ error: 'Le Forgeron ne parle qu’aux siens. Reconnecte-toi et réessaie.' })
+    return
+  }
+
   const { summary, messages } = req.body ?? {}
   if (!summary || summary.vide) {
     res.status(400).json({ error: "Pas encore assez de séances pour un bilan. Entraîne-toi un peu et reviens voir le Forgeron." })
@@ -40,6 +68,14 @@ export default async function handler(req, res) {
   }
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Conversation vide.' })
+    return
+  }
+  if (
+    messages.length > MAX_MESSAGES ||
+    messages.some((m) => String(m?.content ?? '').length > MAX_MESSAGE_CHARS) ||
+    JSON.stringify(summary).length > MAX_SUMMARY_CHARS
+  ) {
+    res.status(400).json({ error: 'Conversation trop longue. Ferme le fil et repars sur un bilan frais.' })
     return
   }
 
