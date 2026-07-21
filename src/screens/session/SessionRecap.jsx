@@ -257,14 +257,19 @@ export default function SessionRecap({ recap, setRecap, onClose, onRoutinesChang
               return (
                 <div
                   key={e.exerciseId}
-                  className="flex items-center justify-between rounded-lg border border-forge-light bg-forge px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-forge-light bg-forge px-3 py-2"
                 >
-                  <p className="truncate text-xs text-cream">{exo.name}</p>
-                  <p className="ml-3 shrink-0 font-mono text-[10px] text-ash">
-                    {e.metric
-                      ? formatPerf(e.metric, e.unit, { reps: e.bestReps, weight: e.bestWeight })
-                      : e.bestWeight > 0 ? `${e.bestWeight} kg × ${e.bestReps}` : `${e.bestReps} reps`}
-                    {' · '}{e.sets}×
+                  <div className="min-w-0">
+                    <p className="truncate text-xs text-cream">{exo.name}</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-ash">
+                      {e.metric
+                        ? formatPerf(e.metric, e.unit, { reps: e.bestReps, weight: e.bestWeight })
+                        : e.bestWeight > 0 ? `${e.bestWeight} kg × ${e.bestReps}` : `${e.bestReps} reps`}
+                      {' · '}{e.sets}×
+                    </p>
+                  </div>
+                  <p className="shrink-0 font-mono text-xs font-medium text-ember">
+                    +{e.runes ?? 0} {RUNE_SYMBOL}
                   </p>
                 </div>
               )

@@ -16,7 +16,7 @@ import {
   getPersonalRecord,
 } from '../storage/sessions'
 import { loadPlayer, savePlayer } from '../storage/player'
-import { computeLevel } from '../domain/economy'
+import { computeLevel, computeSetRunes } from '../domain/economy'
 import { evaluateBadges } from '../domain/badges'
 import { findExerciseById, EQUIPMENT, getMetric, getMetricUnit } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
@@ -185,6 +185,7 @@ export default function Session() {
           }
           return (parseFloat(s.reps) || 0) >= (parseFloat(b.reps) || 0) ? s : b
         }, validSets[0])
+        const runes = validSets.reduce((a, s) => a + computeSetRunes(s, e.exerciseId), 0)
         return {
           exerciseId: e.exerciseId,
           metric: eMetric,
@@ -192,6 +193,7 @@ export default function Session() {
           sets: validSets.length,
           bestReps: best.reps,
           bestWeight: parseFloat(best.weight) || 0,
+          runes,
         }
       })
       .filter(Boolean)
