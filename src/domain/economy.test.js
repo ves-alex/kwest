@@ -16,14 +16,14 @@ function session(entries, { startedAt = '2026-07-01T10:00:00', endedAt = '2026-0
 
 describe('computeSetRunes', () => {
   it('charge avec poids : poids × reps × difficulté / 50, arrondi bas', () => {
-    // developpe-couche-barre → difficulté 1.4 : 100 × 10 × 1.4 / 50 = 28
-    expect(computeSetRunes({ reps: '10', weight: '100' }, 'developpe-couche-barre')).toBe(28)
+    // developpe-couche-barre → difficulté 1.5 : 80 × 10 × 1.5 / 50 = 24
+    expect(computeSetRunes({ reps: '10', weight: '80' }, 'developpe-couche-barre')).toBe(24)
     // leg-extension → difficulté 1.0 : 50 × 10 / 50 = 10
     expect(computeSetRunes({ reps: '10', weight: '50' }, 'leg-extension')).toBe(10)
   })
 
-  it('plafonne une série à 30 runes', () => {
-    // 250 × 10 × 1.4 / 50 = 70 → 30
+  it('plafonne une série chargée à 30 runes', () => {
+    // 250 × 10 × 1.5 / 50 = 75 → 30
     expect(computeSetRunes({ reps: '10', weight: '250' }, 'developpe-couche-barre')).toBe(30)
   })
 
@@ -37,9 +37,13 @@ describe('computeSetRunes', () => {
     expect(computeSetRunes({ reps: '10', weight: '' }, 'pompes')).toBe(15)
   })
 
-  it('metric temps : plafonné aussi à 30', () => {
-    // planche → 45 s × 1 = 45 → 30
-    expect(computeSetRunes({ reps: '45', weight: '' }, 'planche')).toBe(30)
+  it('metric temps/reps : plafond relevé à 150 (la durée compte vraiment)', () => {
+    // planche → 45 s × 1 = 45, sous le plafond de 150
+    expect(computeSetRunes({ reps: '45', weight: '' }, 'planche')).toBe(45)
+    // course 30 min × 7 = 210 → 150 (plafond des exos en durée)
+    expect(computeSetRunes({ reps: '30', weight: '' }, 'tapis-de-course')).toBe(150)
+    // course 20 min × 7 = 140, sous le plafond
+    expect(computeSetRunes({ reps: '20', weight: '' }, 'tapis-de-course')).toBe(140)
   })
 
   it('0 rep → 0 rune', () => {
@@ -139,7 +143,7 @@ describe('recomputeTotalsFromSessions', () => {
     const s = session([
       { exerciseId: 'developpe-couche-barre', sets: [{ reps: '10', weight: '100', validated: true }] },
     ])
-    // runes 28 · xp = 10 + 2 + floor(1/2) = 12
-    expect(recomputeTotalsFromSessions([s])).toEqual({ runes: 28, xp: 12 })
+    // runes : 100 × 10 × 1.5 / 50 = 30 · xp = 10 + 2 + floor(1/2) = 12
+    expect(recomputeTotalsFromSessions([s])).toEqual({ runes: 30, xp: 12 })
   })
 })

@@ -9,8 +9,8 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 // Groupes de force surveillés pour repérer les déséquilibres (hors cardio/divers)
 const STRENGTH_GROUPS = [
-  'poitrine', 'dos', 'epaules', 'biceps', 'triceps',
-  'quadriceps', 'ischios-fessiers', 'mollets', 'core',
+  'poitrine', 'dos', 'trapezes', 'epaules', 'biceps', 'triceps', 'avant-bras',
+  'quadriceps', 'ischios-fessiers', 'fessiers', 'mollets', 'core',
 ]
 
 // Clé de semaine (lundi) pour compter les semaines actives

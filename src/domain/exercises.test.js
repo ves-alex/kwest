@@ -66,9 +66,9 @@ describe('helpers', () => {
   })
 
   it('getDifficulty : override ou 1.0 par défaut', () => {
-    expect(getDifficulty('developpe-couche-barre')).toBe(1.4)
-    expect(getDifficulty('presse-pectoraux')).toBe(1.2)
-    expect(getDifficulty('leg-extension')).toBe(1.0)
+    expect(getDifficulty('developpe-couche-barre')).toBe(1.5)  // composé lourd barre
+    expect(getDifficulty('presse-pectoraux')).toBe(1.15)       // machine guidée
+    expect(getDifficulty('leg-extension')).toBe(1.0)           // isolation standard
   })
 
   it('getBodyweightFactor : facteur ou 1 par défaut', () => {

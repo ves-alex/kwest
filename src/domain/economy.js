@@ -3,7 +3,11 @@ import { getDifficulty, getBodyweightFactor, getMetric } from './exercises'
 // --- Monnaie : Runes d'Effort ---
 
 const DIVISOR = 50
-const MAX_SET_RUNES = 30    // plafond par série (un vrai 5RM lourd ≈ 14 runes)
+const MAX_SET_RUNES = 30    // plafond par série chargée (un vrai 5RM lourd ≈ 14 runes)
+// Plafond par série pour les exos en durée/répétitions (cardio, gainage, poids du corps) :
+// une « série » y vaut toute la durée (30 min de course = un seul set), donc le plafond
+// de 30 des séries chargées l'écraserait. 150 laisse respirer un vrai bloc cardio.
+const MAX_TIME_SET_RUNES = 150
 const MAX_SESSION_RUNES = 400  // plafond par séance
 
 // Runes gagnées pour une série. `set.reps` porte la valeur principale : nombre de
@@ -19,7 +23,7 @@ export function computeSetRunes(set, exerciseId) {
     const raw = Math.floor((weight * primary * getDifficulty(exerciseId)) / DIVISOR)
     return Math.min(raw, MAX_SET_RUNES)
   }
-  return Math.min(Math.floor(primary * getBodyweightFactor(exerciseId)), MAX_SET_RUNES)
+  return Math.min(Math.floor(primary * getBodyweightFactor(exerciseId)), MAX_TIME_SET_RUNES)
 }
 
 // Un set compte s'il est explicitement validé (true) OU d'une ancienne session sans le champ (undefined).
