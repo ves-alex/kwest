@@ -1,5 +1,6 @@
 // data: [{ date: '1 juil.', maxWeight: 80 }, ...]
-export default function ProgressChart({ data }) {
+// `unit` : libellé des graduations ('kg', 'reps', 's', 'min')
+export default function ProgressChart({ data, unit = 'kg' }) {
   if (!data || data.length < 2) return null
 
   const weights = data.map((d) => d.maxWeight)
@@ -30,6 +31,7 @@ export default function ProgressChart({ data }) {
   const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z`
 
   const EMBER = '#c2410c'
+  const label = (v) => (unit === 'kg' ? `${v}kg` : `${v} ${unit}`)
 
   return (
     <div className="w-full">
@@ -60,10 +62,10 @@ export default function ProgressChart({ data }) {
         {!allSame && (
           <>
             <text x={PX} y={PY - 3} fontSize="7" fill="#71717a" textAnchor="start">
-              {maxW}kg
+              {label(maxW)}
             </text>
             <text x={PX} y={H} fontSize="7" fill="#71717a" textAnchor="start">
-              {minW}kg
+              {label(minW)}
             </text>
           </>
         )}

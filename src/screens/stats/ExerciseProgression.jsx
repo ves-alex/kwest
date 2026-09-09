@@ -3,12 +3,14 @@ import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { findExerciseById, getMetric, getMetricUnit } from '../../domain/exercises'
 import { getPersonalRecord } from '../../storage/sessions'
 import { setsForExercise } from '../../domain/sets'
+import { bestOneRepMax, sessionOneRepMax } from '../../domain/oneRepMax'
 import { formatPerf, metricValueUnit } from '../../lib/format'
 import ProgressChart from '../../components/ui/ProgressChart'
 import TrainingHeatmap from '../../components/ui/TrainingHeatmap'
 
 function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack }) {
   const [selectedDay, setSelectedDay] = useState(null)
+  const [chartMode, setChartMode] = useState('perf')
   const metric = getMetric(selectedExoId)
   const unit = getMetricUnit(selectedExoId)
   const isCharge = metric === 'charge'
@@ -19,9 +21,9 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
       ? `Meilleure durée par séance (${valUnit})`
       : 'Meilleures reps par séance'
 
-  const progressionData = useMemo(() => {
-    // Valeur tracée : poids max (charge) ou valeur principale max (reps/temps).
-    // La clé reste `maxWeight` car c'est ce que lit ProgressChart.
+  // Un point par séance (10 dernières) : la perf brute ET le 1RM estimé.
+  // La clé reste `maxWeight` car c'est ce que lit ProgressChart.
+  const sessionPoints = useMemo(() => {
     return sessions
       .filter((s) => s.entries.some((e) => e.exerciseId === selectedExoId))
       .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt))
@@ -37,10 +39,36 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
             month: 'short',
           }),
           maxWeight: value,
+          oneRm: isCharge ? bestOneRepMax(sets) : 0,
         }
       })
-      .filter((d) => d.maxWeight > 0)
   }, [sessions, selectedExoId, isCharge])
+
+  const progressionData = useMemo(
+    () => sessionPoints.filter((d) => d.maxWeight > 0),
+    [sessionPoints]
+  )
+
+  // Série 1RM : seules les séances avec au moins une série exploitable (≤ 12 reps)
+  // y figurent, donc elle peut être plus courte que la courbe des poids.
+  const oneRmData = useMemo(
+    () => sessionPoints.filter((d) => d.oneRm > 0).map((d) => ({ date: d.date, maxWeight: d.oneRm })),
+    [sessionPoints]
+  )
+
+  const best1Rm = useMemo(() => {
+    if (!isCharge) return 0
+    let best = 0
+    for (const s of sessions) {
+      const v = sessionOneRepMax(s, selectedExoId)
+      if (v > best) best = v
+    }
+    return best
+  }, [sessions, selectedExoId, isCharge])
+
+  const canShow1Rm = isCharge && oneRmData.length >= 2
+  const showing1Rm = canShow1Rm && chartMode === '1rm'
+  const chartData = showing1Rm ? oneRmData : progressionData
 
   const selectedPR = useMemo(
     () => getPersonalRecord(selectedExoId, sessions),
@@ -98,19 +126,55 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
         {progressionData.length >= 2 ? (
           <>
             <div className="mt-4">
-              <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-ash/50">
-                {chartLabel}
-              </p>
-              <ProgressChart data={progressionData} />
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">
+                  {showing1Rm ? '1RM estimé par séance (kg)' : chartLabel}
+                </p>
+                {canShow1Rm && (
+                  <div className="flex shrink-0 rounded-full border border-forge-light p-0.5">
+                    {[
+                      ['perf', 'Poids'],
+                      ['1rm', '1RM'],
+                    ].map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setChartMode(mode)}
+                        className={`rounded-full px-2.5 py-1 text-[9px] uppercase tracking-[0.15em] transition-colors ${
+                          chartMode === mode
+                            ? 'bg-ember/25 text-cream'
+                            : 'text-ash/60 hover:text-cream'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <ProgressChart data={chartData} unit={isCharge ? 'kg' : valUnit} />
+              {showing1Rm && (
+                <p className="mt-2 text-[10px] leading-relaxed text-ash/50">
+                  Charge théorique sur une seule répétition (formule d'Epley). Elle monte
+                  aussi quand tu fais plus de reps au même poids — les séries au-delà de
+                  12 reps sont écartées.
+                </p>
+              )}
             </div>
             {selectedPR && (
-              <div className="mt-4 flex gap-6">
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">Record</p>
                   <p className="mt-1 text-sm font-medium text-ember">
                     {formatPerf(metric, unit, selectedPR)}
                   </p>
                 </div>
+                {best1Rm > 0 && (
+                  <div>
+                    <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">1RM estimé</p>
+                    <p className="mt-1 text-sm font-medium text-cream">{best1Rm} kg</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-ash/50">Séances</p>
                   <p className="mt-1 text-sm font-medium text-cream">
