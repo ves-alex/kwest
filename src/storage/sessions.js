@@ -2,6 +2,7 @@ import { pushSessions, deleteSessionCloud } from '../lib/sync'
 import { SESSIONS_KEY as STORAGE_KEY, ACTIVE_KEY, RECENTS_KEY } from './keys'
 import { genId } from '../lib/id'
 import { getMetric } from '../domain/exercises'
+import { setsForExercise } from '../domain/sets'
 
 // Migration idempotente : les sessions terminées AVANT l'activation de la validation
 // stricte ont des sets avec `validated: false` (défaut hérité du sprint UX). On les
@@ -204,12 +205,9 @@ export function getPersonalRecord(exerciseId, sessions) {
   const isCharge = getMetric(exerciseId) === 'charge'
   let best = null
   for (const s of sessions) {
-    const entry = s.entries.find((e) => e.exerciseId === exerciseId)
-    if (!entry) continue
-    for (const set of entry.sets) {
+    for (const set of setsForExercise(s, exerciseId)) {
       const w = parseFloat(set.weight) || 0
       const r = parseFloat(set.reps) || 0
-      if (r === 0 && w === 0) continue
       if (isCharge) {
         if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
           best = { weight: w, reps: r }
@@ -222,15 +220,15 @@ export function getPersonalRecord(exerciseId, sessions) {
   return best
 }
 
-// Retourne le dernier set enregistré pour un exercice donné dans l'historique
+// Retourne le dernier set validé pour un exercice donné dans l'historique
 export function getLastPerformance(exerciseId, sessions) {
   const sorted = [...sessions].sort(
     (a, b) => new Date(b.startedAt) - new Date(a.startedAt)
   )
   for (const s of sorted) {
-    const entry = s.entries.find((e) => e.exerciseId === exerciseId)
-    if (entry?.sets?.length > 0) {
-      const last = entry.sets[entry.sets.length - 1]
+    const sets = setsForExercise(s, exerciseId)
+    if (sets.length > 0) {
+      const last = sets[sets.length - 1]
       return { reps: last.reps, weight: last.weight }
     }
   }

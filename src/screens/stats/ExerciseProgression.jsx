@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { findExerciseById, getMetric, getMetricUnit } from '../../domain/exercises'
 import { getPersonalRecord } from '../../storage/sessions'
+import { setsForExercise } from '../../domain/sets'
 import { formatPerf, metricValueUnit } from '../../lib/format'
 import ProgressChart from '../../components/ui/ProgressChart'
 import TrainingHeatmap from '../../components/ui/TrainingHeatmap'
@@ -26,10 +27,10 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
       .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt))
       .slice(-10)
       .map((s) => {
-        const entry = s.entries.find((e) => e.exerciseId === selectedExoId)
+        const sets = setsForExercise(s, selectedExoId)
         const value = isCharge
-          ? Math.max(0, ...entry.sets.map((set) => parseFloat(set.weight) || 0))
-          : Math.max(0, ...entry.sets.map((set) => parseFloat(set.reps) || 0))
+          ? Math.max(0, ...sets.map((set) => parseFloat(set.weight) || 0))
+          : Math.max(0, ...sets.map((set) => parseFloat(set.reps) || 0))
         return {
           date: new Date(s.startedAt).toLocaleDateString('fr-FR', {
             day: 'numeric',
@@ -65,12 +66,9 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
       const d = new Date(s.startedAt)
       d.setHours(0, 0, 0, 0)
       if (d.toISOString().slice(0, 10) !== selectedDay) continue
-      const entry = s.entries.find((e) => e.exerciseId === selectedExoId)
-      if (!entry) continue
-      for (const set of entry.sets) {
+      for (const set of setsForExercise(s, selectedExoId)) {
         const w = parseFloat(set.weight) || 0
         const r = parseFloat(set.reps) || 0
-        if (r === 0 && w === 0) continue
         if (isCharge) {
           if (!best || w > best.weight || (w === best.weight && r > best.reps)) {
             best = { weight: w, reps: r }

@@ -1,4 +1,5 @@
 import { getDifficulty, getBodyweightFactor, getMetric } from './exercises'
+import { isCounted } from './sets'
 
 // --- Monnaie : Runes d'Effort ---
 
@@ -24,12 +25,6 @@ export function computeSetRunes(set, exerciseId) {
     return Math.min(raw, MAX_SET_RUNES)
   }
   return Math.min(Math.floor(primary * getBodyweightFactor(exerciseId)), MAX_TIME_SET_RUNES)
-}
-
-// Un set compte s'il est explicitement validé (true) OU d'une ancienne session sans le champ (undefined).
-// Seul `validated: false` (nouveau + pas validé) est exclu.
-function isCounted(set) {
-  return set.validated !== false
 }
 
 export function computeSessionRunes(session) {

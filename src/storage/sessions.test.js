@@ -118,6 +118,45 @@ describe('getPersonalRecord', () => {
   it('aucun historique → null', () => {
     expect(getPersonalRecord('squat-barre', sessions)).toBeNull()
   })
+
+  it('ignore les sets non validés', () => {
+    const s = [
+      {
+        id: 'a', startedAt: '2026-07-01T10:00:00',
+        entries: [{
+          exerciseId: 'developpe-couche-barre',
+          sets: [
+            { reps: '8', weight: '80', validated: true },
+            { reps: '1', weight: '200', validated: false },
+          ],
+        }],
+      },
+    ]
+    expect(getPersonalRecord('developpe-couche-barre', s)).toEqual({ weight: 80, reps: 8 })
+  })
+
+  it('agrège les entries dupliquées du même exo dans une séance', () => {
+    const s = [
+      {
+        id: 'a', startedAt: '2026-07-01T10:00:00',
+        entries: [
+          { exerciseId: 'developpe-couche-barre', sets: [{ reps: '12', weight: '40' }] },
+          { exerciseId: 'developpe-couche-barre', sets: [{ reps: '5', weight: '95' }] },
+        ],
+      },
+    ]
+    expect(getPersonalRecord('developpe-couche-barre', s)).toEqual({ weight: 95, reps: 5 })
+  })
+
+  it('ignore les sets vides', () => {
+    const s = [
+      {
+        id: 'a', startedAt: '2026-07-01T10:00:00',
+        entries: [{ exerciseId: 'pompes', sets: [{ reps: '', weight: '' }] }],
+      },
+    ]
+    expect(getPersonalRecord('pompes', s)).toBeNull()
+  })
 })
 
 describe('getLastPerformance', () => {
@@ -131,5 +170,26 @@ describe('getLastPerformance', () => {
 
   it('exercice jamais pratiqué → null', () => {
     expect(getLastPerformance('inconnu', [])).toBeNull()
+  })
+
+  it('prend le dernier set de la DERNIÈRE entry en cas de doublon', () => {
+    const sessions = [
+      {
+        id: 'a', startedAt: '2026-07-10T10:00:00',
+        entries: [
+          { exerciseId: 'pompes', sets: [{ reps: '20', weight: '' }] },
+          { exerciseId: 'pompes', sets: [{ reps: '8', weight: '' }] },
+        ],
+      },
+    ]
+    expect(getLastPerformance('pompes', sessions)).toEqual({ reps: '8', weight: '' })
+  })
+
+  it('remonte à la séance précédente si la dernière n\'a que des sets non validés', () => {
+    const sessions = [
+      { id: 'vieille', startedAt: '2026-07-01T10:00:00', entries: [{ exerciseId: 'pompes', sets: [{ reps: '10', weight: '' }] }] },
+      { id: 'recente', startedAt: '2026-07-10T10:00:00', entries: [{ exerciseId: 'pompes', sets: [{ reps: '99', weight: '', validated: false }] }] },
+    ]
+    expect(getLastPerformance('pompes', sessions)).toEqual({ reps: '10', weight: '' })
   })
 })

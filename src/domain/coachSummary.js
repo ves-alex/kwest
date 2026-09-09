@@ -1,10 +1,10 @@
 import { findExerciseById, getMetric, GROUPS } from './exercises'
+import { isCounted } from './sets'
 
 // Construit un résumé compact de l'historique d'entraînement, destiné au
 // coaching IA. On envoie ces chiffres (et pas les séances brutes) : c'est plus
 // léger en tokens et Claude raisonne mieux sur des stats agrégées.
 
-const isCounted = (s) => s.validated !== false
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 // Groupes de force surveillés pour repérer les déséquilibres (hors cardio/divers)
