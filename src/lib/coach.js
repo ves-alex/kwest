@@ -1,5 +1,8 @@
 import { loadSessions } from '../storage/sessions'
+import { loadPlayer } from '../storage/player'
+import { loadRoutines } from '../storage/routines'
 import { buildCoachSummary } from '../domain/coachSummary'
+import { computeWeeklyStats } from '../domain/streak'
 import { supabase } from './supabase'
 
 // Envoie le fil de discussion + le résumé des séances au serveur du Forgeron.
@@ -8,7 +11,12 @@ import { supabase } from './supabase'
 // Le JWT Supabase accompagne chaque appel : le serveur refuse les anonymes
 // (l'endpoint consomme des tokens Claude, il n'est pas public).
 export async function askCoach(messages) {
-  const summary = buildCoachSummary(loadSessions())
+  const sessions = loadSessions()
+  const summary = buildCoachSummary(sessions, {
+    player: loadPlayer(),
+    routines: loadRoutines(),
+    weekly: computeWeeklyStats(sessions),
+  })
 
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) {

@@ -43,7 +43,10 @@ function unitOf(id) {
   return 'reps'
 }
 
-export function buildCoachSummary(sessions, { weeks = 8, now = Date.now() } = {}) {
+export function buildCoachSummary(
+  sessions,
+  { weeks = 8, now = Date.now(), player = null, routines = null, weekly = null } = {},
+) {
   const since = now - weeks * WEEK_MS
   const period = (sessions ?? [])
     .filter((s) => s.endedAt && s.entries?.length && new Date(s.startedAt).getTime() >= since)
@@ -123,6 +126,26 @@ export function buildCoachSummary(sessions, { weeks = 8, now = Date.now() } = {}
     .sort((a, b) => b.seances - a.seances)
     .slice(0, 8)
 
+  // --- Contexte de jeu : ce que le pratiquant s'est fixé et ce qu'il a préparé ---
+  // Sans ça, le Forgeron conseille dans le vide : il ignore l'objectif hebdo, la
+  // chaîne de semaines en cours et les routines déjà construites.
+  const objectif =
+    player || weekly
+      ? {
+          seancesParSemaineVisees: player?.weeklyGoal ?? null,
+          seancesCetteSemaine: weekly?.weekSessions ?? null,
+          chaineSemaines: weekly?.streak ?? null,
+          recordChaineSemaines: weekly?.recordStreak ?? null,
+        }
+      : null
+
+  const routinesResume = (routines ?? []).slice(0, 6).map((r) => ({
+    nom: r.name,
+    exercices: (r.exerciseIds ?? [])
+      .slice(0, 10)
+      .map((id) => findExerciseById(id)?.name ?? id),
+  }))
+
   return {
     semainesAnalysees, // durée réelle couverte depuis la 1re séance connue
     totalSeances: period.length,
@@ -132,5 +155,7 @@ export function buildCoachSummary(sessions, { weeks = 8, now = Date.now() } = {}
     volumeParGroupe,
     groupesNegliges,
     progression,
+    ...(objectif ? { objectif } : {}),
+    ...(routinesResume.length ? { routines: routinesResume } : {}),
   }
 }

@@ -69,3 +69,43 @@ describe('buildCoachSummary', () => {
     expect(r.groupesNegliges).toContain('Poitrine')
   })
 })
+
+describe('contexte de jeu (objectif, chaîne, routines)', () => {
+  const now = new Date('2026-07-15T10:00:00').getTime()
+  const seance = {
+    id: 's1',
+    startedAt: '2026-07-13T10:00:00',
+    endedAt: '2026-07-13T11:00:00',
+    entries: [{ exerciseId: 'developpe-couche-barre', sets: [{ reps: '8', weight: '80' }] }],
+  }
+
+  it('sans player ni routines : le résumé garde sa forme d\'origine', () => {
+    const r = buildCoachSummary([seance], { now })
+    expect(r.objectif).toBeUndefined()
+    expect(r.routines).toBeUndefined()
+  })
+
+  it('joint l\'objectif hebdo et la chaîne de semaines', () => {
+    const r = buildCoachSummary([seance], {
+      now,
+      player: { weeklyGoal: 4 },
+      weekly: { weekSessions: 1, streak: 3, recordStreak: 6 },
+    })
+    expect(r.objectif).toEqual({
+      seancesParSemaineVisees: 4,
+      seancesCetteSemaine: 1,
+      chaineSemaines: 3,
+      recordChaineSemaines: 6,
+    })
+  })
+
+  it('traduit les routines en noms d\'exercices lisibles', () => {
+    const r = buildCoachSummary([seance], {
+      now,
+      routines: [{ name: 'Push', exerciseIds: ['developpe-couche-barre'] }],
+    })
+    expect(r.routines).toHaveLength(1)
+    expect(r.routines[0].nom).toBe('Push')
+    expect(r.routines[0].exercices[0]).not.toBe('developpe-couche-barre')
+  })
+})
