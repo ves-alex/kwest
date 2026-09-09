@@ -1,7 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { X } from 'lucide-react'
-import { COSMETICS, COSMETIC_TYPES, FOND_AVATAR_GRADIENTS, findCosmeticById } from '../../domain/cosmetics'
-import { equipCosmetic, unequipCosmetic } from '../../storage/player'
+import {
+  COSMETICS,
+  COSMETIC_TYPES,
+  FOND_AVATAR_GRADIENTS,
+  findCosmeticById,
+  equippedBadgeIds,
+} from '../../domain/cosmetics'
+import { equipCosmetic, unequipCosmetic, toggleBadge, setEquippedBadges } from '../../storage/player'
 import PixelAvatar from '../../components/ui/PixelAvatar'
 
 const DRESSING_TYPES = ['skin', 'fond-avatar', 'aura', 'titre', 'fond']
@@ -15,7 +21,14 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
       COSMETICS.filter((c) => c.type === type && player.cosmeticsOwned.includes(c.id)),
     ])
   )
-  const hasDressing = DRESSING_TYPES.some((t) => ownedByType[t].length > 0)
+  // Les badges ont leur propre section : on en porte plusieurs à la fois,
+  // là où les autres types se remplacent.
+  const ownedBadges = COSMETICS.filter(
+    (c) => c.type === 'badge' && player.cosmeticsOwned.includes(c.id),
+  )
+  const wornBadges = equippedBadgeIds(player)
+  const hasDressing =
+    DRESSING_TYPES.some((t) => ownedByType[t].length > 0) || ownedBadges.length > 0
 
   function handleTryOn(type, id) {
     if (player.cosmeticsEquipped?.[type] === id) {
@@ -165,6 +178,56 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
                 </div>
               )
             })}
+
+            {ownedBadges.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] uppercase tracking-[0.25em] text-ash/50">
+                    {COSMETIC_TYPES.badge}s · {wornBadges.length}/{ownedBadges.length}
+                  </p>
+                  {wornBadges.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange?.(setEquippedBadges([]))}
+                      className="text-[9px] uppercase tracking-[0.2em] text-ash/40 transition-colors hover:text-ash"
+                    >
+                      tout retirer
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-[9px] leading-relaxed text-ash/40">
+                  Ceux que tu portes flottent autour de toi sur le Refuge.
+                </p>
+
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                  {ownedBadges.map((c) => {
+                    const isWorn = wornBadges.includes(c.id)
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onChange?.(toggleBadge(c.id))}
+                        aria-label={c.name}
+                        aria-pressed={isWorn}
+                        title={c.name}
+                        className={`h-14 w-14 flex-shrink-0 rounded-full border transition-all ${
+                          isWorn
+                            ? 'border-ember bg-ember/10 ring-2 ring-ember ring-offset-2 ring-offset-forge'
+                            : 'border-forge-light bg-transparent opacity-40 hover:opacity-70'
+                        }`}
+                      >
+                        <img
+                          src={`/avatars/${c.id}.png`}
+                          alt=""
+                          className="h-full w-full object-contain p-1.5"
+                          style={{ imageRendering: 'pixelated' }}
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

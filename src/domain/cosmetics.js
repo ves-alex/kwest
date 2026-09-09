@@ -223,3 +223,37 @@ export const COSMETICS = [
 export function findCosmeticById(id) {
   return COSMETICS.find((c) => c.id === id) ?? null
 }
+
+// --- Badges : plusieurs à la fois ---
+//
+// Les badges sont des bulles qui flottent sur le Refuge : contrairement aux
+// autres types (une seule aura, un seul titre), on en porte plusieurs.
+// `cosmeticsEquipped.badge` est donc une LISTE d'ids, là où les autres types
+// stockent un id unique.
+export function ownedBadgeIds(player) {
+  return (player?.cosmeticsOwned ?? []).filter(
+    (id) => findCosmeticById(id)?.type === 'badge',
+  )
+}
+
+// Liste des badges portés, tolérante aux formats d'avant la migration :
+//   - tableau        → filtré sur ce qui est encore possédé
+//   - id unique      → ancien format mono-badge
+//   - absent/null    → tous les badges possédés (état historique : posséder
+//                      suffisait à faire flotter le badge, on ne retire rien
+//                      sous les pieds du joueur)
+export function equippedBadgeIds(player) {
+  const owned = ownedBadgeIds(player)
+  const raw = player?.cosmeticsEquipped?.badge
+  if (Array.isArray(raw)) return raw.filter((id) => owned.includes(id))
+  if (typeof raw === 'string') return owned.includes(raw) ? [raw] : []
+  return owned
+}
+
+// Un cosmétique est-il porté ? Les badges se lisent dans leur liste, les
+// autres types dans leur emplacement unique.
+export function isCosmeticEquipped(player, cosmetic) {
+  if (!cosmetic) return false
+  if (cosmetic.type === 'badge') return equippedBadgeIds(player).includes(cosmetic.id)
+  return player?.cosmeticsEquipped?.[cosmetic.type] === cosmetic.id
+}

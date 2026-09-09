@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, X, ShoppingBag } from 'lucide-react'
-import { RARITIES, COSMETIC_TYPES } from '../../domain/cosmetics'
+import { RARITIES, COSMETIC_TYPES, isCosmeticEquipped } from '../../domain/cosmetics'
 import { RARITY_STYLES } from '../../theme/rarity'
 import { RUNE_SYMBOL } from '../../domain/economy'
 import ItemPreview from './ItemPreview'
@@ -13,7 +13,7 @@ export default function ShopItemSheet({ item, player, balance, onClose, onBuyReq
         const style = RARITY_STYLES[c.rarity]
         const rarity = RARITIES[c.rarity]
         const isOwned = player.cosmeticsOwned.includes(c.id)
-        const isEquipped = player.cosmeticsEquipped?.[c.type] === c.id
+        const isEquipped = isCosmeticEquipped(player, c)
         const canAfford = balance >= c.price
         return (
           <motion.div
@@ -98,11 +98,11 @@ export default function ShopItemSheet({ item, player, balance, onClose, onBuyReq
                   {isOwned && isEquipped && (
                     <button
                       type="button"
-                      onClick={() => onUnequip(c.type)}
+                      onClick={() => onUnequip(c)}
                       className="inline-flex items-center gap-2 rounded-md border border-glow bg-forge px-5 py-2.5 text-xs uppercase tracking-[0.25em] text-glow transition-colors hover:bg-glow/10"
                     >
                       <Check size={13} />
-                      Équipé · retirer
+                      Porté · retirer
                     </button>
                   )}
                   {isOwned && !isEquipped && (

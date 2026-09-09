@@ -2,6 +2,7 @@ import { pushPlayer } from '../lib/sync'
 import { PLAYER_KEY, SESSIONS_KEY } from './keys'
 import { evaluateBadges } from '../domain/badges'
 import { recomputeTotalsFromSessions } from '../domain/economy'
+import { equippedBadgeIds } from '../domain/cosmetics'
 
 const DEFAULT_PLAYER = {
   gender: null,
@@ -35,6 +36,15 @@ export function loadPlayer() {
     const player = raw
       ? { ...DEFAULT_PLAYER, ...JSON.parse(raw) }
       : { ...DEFAULT_PLAYER }
+
+    // Les badges se portent à plusieurs : `cosmeticsEquipped.badge` est une liste.
+    // Normalisée ici (en mémoire) pour que le reste du code n'ait qu'un format à
+    // gérer ; elle sera écrite au prochain savePlayer. Cas hérités traités par
+    // `equippedBadgeIds` — dont l'absence de champ, qui vaut « tous les possédés ».
+    player.cosmeticsEquipped = {
+      ...player.cosmeticsEquipped,
+      badge: equippedBadgeIds(player),
+    }
 
     // Anti-triche faible : les totaux doivent coller à la somme des sessions.
     // Si édition manuelle de localStorage → on réaligne sur la vérité sessions.
@@ -98,8 +108,12 @@ export function buyCosmetic(id, price, type) {
   if (p.cosmeticsOwned.includes(id)) return null
   p.runesSpent += price
   p.cosmeticsOwned = [...p.cosmeticsOwned, id]
-  // Équipe automatiquement (remplace l'ancien du même type s'il existe)
-  p.cosmeticsEquipped = { ...p.cosmeticsEquipped, [type]: id }
+  // Équipe automatiquement. Un badge s'ajoute aux autres ; tout autre type
+  // remplace celui qu'il portait.
+  p.cosmeticsEquipped =
+    type === 'badge'
+      ? { ...p.cosmeticsEquipped, badge: [...new Set([...(p.cosmeticsEquipped.badge ?? []), id])] }
+      : { ...p.cosmeticsEquipped, [type]: id }
   savePlayer(p)
   return p
 }
@@ -111,6 +125,32 @@ export function forgePrestigeStar(cost) {
   if (getBalance(p) < cost) return null
   p.runesSpent += cost
   p.prestigeStars = (p.prestigeStars ?? 0) + 1
+  savePlayer(p)
+  return p
+}
+
+// Bascule un badge : porté → retiré, retiré → porté. Les badges cumulent,
+// donc pas de remplacement comme pour les autres types.
+export function toggleBadge(id) {
+  const p = loadPlayer()
+  if (!p.cosmeticsOwned.includes(id)) return null
+  const current = p.cosmeticsEquipped.badge ?? []
+  const next = current.includes(id)
+    ? current.filter((x) => x !== id)
+    : [...current, id]
+  p.cosmeticsEquipped = { ...p.cosmeticsEquipped, badge: next }
+  savePlayer(p)
+  return p
+}
+
+// Remplace la liste des badges portés (une liste vide = aucun badge, ce qui
+// est différent d'un champ absent : celui-là veut dire « tous les possédés »).
+export function setEquippedBadges(ids) {
+  const p = loadPlayer()
+  p.cosmeticsEquipped = {
+    ...p.cosmeticsEquipped,
+    badge: ids.filter((id) => p.cosmeticsOwned.includes(id)),
+  }
   savePlayer(p)
   return p
 }

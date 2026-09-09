@@ -5,7 +5,7 @@ import { loadPlayer, getBalance } from '../storage/player'
 import { loadSessions } from '../storage/sessions'
 import { computeLevel, RUNE_SYMBOL } from '../domain/economy'
 import { computeWeeklyStats } from '../domain/streak'
-import { findCosmeticById } from '../domain/cosmetics'
+import { findCosmeticById, equippedBadgeIds } from '../domain/cosmetics'
 import { BADGES, findBadgeById } from '../domain/badges'
 import PixelAvatar from '../components/ui/PixelAvatar'
 import FloatingBadges from '../components/ui/FloatingBadges'
@@ -121,7 +121,7 @@ export default function Home() {
 
           {frameDims && (
             <FloatingBadges
-              ownedIds={player.cosmeticsOwned}
+              badgeIds={equippedBadgeIds(player)}
               zoneW={frameDims.w}
               zoneH={frameDims.h}
             />

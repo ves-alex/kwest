@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { RARITIES } from '../../domain/cosmetics'
+import { RARITIES, isCosmeticEquipped } from '../../domain/cosmetics'
 import { RUNE_SYMBOL } from '../../domain/economy'
 import { RARITY_STYLES } from '../../theme/rarity'
 import ItemPreview from './ItemPreview'
@@ -11,7 +11,7 @@ export default function ShopCard({ c, player, onSelect }) {
   const style = RARITY_STYLES[c.rarity]
   const rarity = RARITIES[c.rarity]
   const isOwned = player.cosmeticsOwned.includes(c.id)
-  const isEquipped = player.cosmeticsEquipped?.[c.type] === c.id
+  const isEquipped = isCosmeticEquipped(player, c)
 
   return (
     <button

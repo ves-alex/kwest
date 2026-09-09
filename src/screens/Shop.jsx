@@ -7,6 +7,7 @@ import {
   buyCosmetic,
   equipCosmetic,
   unequipCosmetic,
+  toggleBadge,
 } from '../storage/player'
 import { RUNE_SYMBOL } from '../domain/economy'
 import ShopCard from './shop/ShopCard'
@@ -54,13 +55,14 @@ export default function Shop() {
     setPendingBuy(null)
   }
 
+  // Les badges se cumulent : on bascule celui-là sans toucher aux autres.
   const handleEquip = (c) => {
-    setPlayer(equipCosmetic(c.type, c.id))
+    setPlayer(c.type === 'badge' ? toggleBadge(c.id) : equipCosmetic(c.type, c.id))
     setSelectedItem(null)
   }
 
-  const handleUnequip = (type) => {
-    setPlayer(unequipCosmetic(type))
+  const handleUnequip = (c) => {
+    setPlayer(c.type === 'badge' ? toggleBadge(c.id) : unequipCosmetic(c.type))
     setSelectedItem(null)
   }
 

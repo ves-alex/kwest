@@ -63,8 +63,8 @@ function BadgeBubble({ cosmetic, initialX, initialY, duration, zoneW, zoneH }) {
   )
 }
 
-export default function FloatingBadges({ ownedIds, zoneW, zoneH }) {
-  const badges = (ownedIds ?? [])
+export default function FloatingBadges({ badgeIds, zoneW, zoneH }) {
+  const badges = (badgeIds ?? [])
     .map((id) => findCosmeticById(id))
     .filter((c) => c?.type === 'badge')
 
