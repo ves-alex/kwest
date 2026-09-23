@@ -305,14 +305,14 @@ export default function SessionRecap({ recap, setRecap, onClose, onRoutinesChang
                 <button
                   type="button"
                   onClick={handleSaveRoutine}
-                  className="flex-1 rounded-md border border-ember bg-transparent py-1.5 text-[10px] uppercase tracking-[0.2em] text-cream transition-colors hover:bg-ember/15"
+                  className="min-h-11 flex-1 rounded-md border border-ember bg-transparent py-1.5 text-[10px] uppercase tracking-[0.2em] text-cream transition-colors hover:bg-ember/15"
                 >
                   Enregistrer
                 </button>
                 <button
                   type="button"
                   onClick={() => setSaveRoutineState('idle')}
-                  className="rounded-md border border-forge-light px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60"
+                  className="min-h-11 rounded-md border border-forge-light px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60"
                 >
                   Annuler
                 </button>
@@ -322,7 +322,7 @@ export default function SessionRecap({ recap, setRecap, onClose, onRoutinesChang
             <button
               type="button"
               onClick={handleOpenSaveRoutine}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-forge-light bg-transparent py-2.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60 hover:text-cream"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-forge-light bg-transparent py-2.5 text-[10px] uppercase tracking-[0.2em] text-ash transition-colors hover:border-ash/60 hover:text-cream"
             >
               <BookMarked size={12} />
               Garder comme routine
@@ -347,7 +347,7 @@ export default function SessionRecap({ recap, setRecap, onClose, onRoutinesChang
                 key={v}
                 type="button"
                 onClick={() => handleSetRpe(v)}
-                className={`flex-1 rounded-md border px-1 py-2 text-[9px] uppercase tracking-[0.1em] transition-colors ${
+                className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-md border px-1 py-2 text-[9px] uppercase leading-tight tracking-[0.2em] transition-colors ${
                   recap.rpe === v
                     ? 'border-ember bg-ember/15 text-cream'
                     : 'border-forge-light bg-transparent text-ash hover:border-ash/60'

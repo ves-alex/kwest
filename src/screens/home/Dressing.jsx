@@ -54,7 +54,8 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 360, damping: 36 }}
-            className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-forge-light bg-forge px-6 pb-16 pt-6"
+            className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-forge-light bg-forge px-6 pt-6"
+            style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
@@ -62,7 +63,7 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
                 aria-label="Fermer"
               >
                 <X size={13} />
@@ -105,7 +106,7 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
                       <button
                         type="button"
                         onClick={() => onChange?.(unequipCosmetic(type))}
-                        className="text-[9px] uppercase tracking-[0.2em] text-ash/40 transition-colors hover:text-ash"
+                        className="-mr-2 inline-flex min-h-9 items-center px-2 text-[9px] uppercase tracking-[0.2em] text-ash/40 transition-colors hover:text-ash"
                       >
                         retirer
                       </button>
@@ -164,7 +165,7 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
                           type="button"
                           onClick={() => handleTryOn(type, c.id)}
                           aria-pressed={isEquipped}
-                          className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] transition-all ${
+                          className={`inline-flex min-h-9 flex-shrink-0 items-center rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] transition-all ${
                             isEquipped
                               ? 'border-ember bg-ember/15 text-cream'
                               : 'border-forge-light bg-transparent text-ash hover:border-ash/60'
@@ -189,7 +190,7 @@ export default function Dressing({ isOpen, player, onClose, onChange }) {
                     <button
                       type="button"
                       onClick={() => onChange?.(setEquippedBadges([]))}
-                      className="text-[9px] uppercase tracking-[0.2em] text-ash/40 transition-colors hover:text-ash"
+                      className="-mr-2 inline-flex min-h-9 items-center px-2 text-[9px] uppercase tracking-[0.2em] text-ash/40 transition-colors hover:text-ash"
                     >
                       tout retirer
                     </button>

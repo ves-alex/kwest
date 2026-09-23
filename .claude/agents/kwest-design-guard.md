@@ -28,18 +28,23 @@ Seule exception tolérée : un `shadow-[0_0_20px_-6px_rgba(...)]` dont le rgba c
 ### Typographie
 - `font-display` = **Cinzel** (serif) → titres d'écran, noms d'objets, libellés RPG.
 - `font-sans` = **Inter** → corps de texte, chiffres, formulaires.
+- Exception chiffres — **montant héros** : un chiffre unique mis en avant (solde de runes, prix dans la sheet d'achat, minuteur de repos, récap de séance) s'écrit `font-display tracking-wider text-ember`, taille selon l'écran (`text-xl` → `text-6xl`). Les chiffres secondaires en liste ou en tableau restent en `font-mono`/`font-sans`. Exemples : `Home.jsx`, `Shop.jsx`, `ShopItemSheet.jsx`, `RestTimer.jsx`, `SessionRecap.jsx`.
+  - Hiérarchie voulue : les runes (la monnaie) sont en `text-ember` ; l'XP, montant héros secondaire, est en `text-cream` (voir `SessionRecap.jsx`). Ce n'est pas un écart.
+- Eyebrow (petit libellé au-dessus d'un titre d'écran) : `text-[10px] uppercase tracking-[0.4em] text-ash`. C'est un idiome établi, utilisé dans une dizaine d'écrans (`Home`, `Shop`, `Stats`, `Settings`, `Session`…).
 - Idiome des petits libellés / boutons secondaires : `text-[11px] uppercase tracking-[0.25em]`. Un libellé de ce type sans `tracking` large est un écart.
+- Variante compacte, **tout aussi canonique** : `text-[9px]` ou `text-[10px] uppercase tracking-[0.2em]`, pour les pills de filtre, les segments et les micro-libellés de stats. Ne la signale pas comme une dérive du couple 11px / 0.25em.
 
 ### Idiomes de composition (à réutiliser, pas à réinventer)
 - Carte standard : `rounded-2xl border border-forge-light bg-forge p-5`.
 - Bouton secondaire : `rounded-md border border-forge-light bg-transparent px-4 py-2.5 text-[11px] uppercase tracking-[0.25em] text-ash transition-colors hover:border-ember hover:text-ember`.
+- Pill de filtre : `inline-flex min-h-9 items-center rounded-full border px-4 py-1.5 text-[9px] uppercase tracking-[0.2em]` ; active `border-ember bg-ember/20 text-cream`, inactive `border-forge-light text-ash hover:border-ember hover:text-cream` (référence : `pill` dans `Shop.jsx`). Le `min-h-9` est obligatoire : sans lui, `py-1.5` donne ≈ 30px, sous le seuil de 36px.
 - Raretés : **toujours** passer par `RARITY_STYLES` de `src/theme/rarity.js` (border / glow / headerBg / text / symbol / badge). Redéfinir un style de rareté à la main est un écart.
 - Fonds cosmétiques : via `FOND_STYLES` (`src/theme/fonds.js`), jamais en dur.
 
 ### Mobile-first (l'app se consulte au téléphone, en salle)
 - Deux seuils de cible tactile, selon l'enjeu du contrôle. Un contrôle trop petit se rate ; en salle, avec les mains moites et une seule main libre, un raté sur un contrôle critique coûte cher — sur un filtre, il ne coûte rien.
   - **44px minimum** pour tout contrôle **isolé ou critique** : fermer une sheet ou une modale, valider une série, supprimer, confirmer un achat, onglets de la tab bar, action principale d'un écran. Ce sont des boutons qu'on vise seul, souvent en petit format (`h-7 w-7`, `h-8` → écart, monter à `h-11 w-11`).
-  - **~36px minimum** pour les contrôles **secondaires présentés en groupe** : chips de filtre, segments, boutons de réglage. L'idiome maison est `px-4 py-2.5 text-[11px]` (≈ 33px) — **considère-le comme conforme**, c'est la convention établie du projet. En dessous (`py-1`, `py-1.5` avec `text-[9px]`, `h-6`), c'est un écart.
+  - **~36px minimum** pour les contrôles **secondaires présentés en groupe** : chips de filtre, segments, boutons de réglage. L'idiome maison est `px-4 py-2.5 text-[11px]` (≈ 33px) — **considère-le comme conforme**, c'est la convention établie du projet. En dessous (`py-1`, `py-1.5` avec `text-[9px]` **sans** `min-h-9`, `h-6`), c'est un écart.
 - Dans le doute sur la catégorie, pose la question au lieu de trancher : « chip de filtre (36px suffisent) ou action isolée (44px) ? »
 - Le layout part du mobile ; les variantes `sm:`/`md:` sont des ajouts, pas la base. Une largeur fixe en `px` sur un conteneur est un écart.
 - Tout élément collé en bas ou en haut de l'écran respecte les encoches iOS : `env(safe-area-inset-bottom)` / `-top` (voir `src/components/Layout.jsx`, `BottomTabBar.jsx`).

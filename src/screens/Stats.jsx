@@ -68,7 +68,7 @@ export default function Stats() {
               key={id}
               type="button"
               onClick={() => setView(id)}
-              className={`rounded-full px-4 py-1.5 text-[10px] uppercase tracking-[0.2em] transition-colors ${
+              className={`inline-flex min-h-9 items-center rounded-full px-4 py-1.5 text-[10px] uppercase tracking-[0.2em] transition-colors ${
                 view === id
                   ? 'bg-ember/15 text-cream border border-ember/40'
                   : 'border border-forge-light text-ash hover:border-ash/60 hover:text-cream'
