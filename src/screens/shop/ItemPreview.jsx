@@ -1,5 +1,6 @@
 import { RARITIES, FOND_AVATAR_GRADIENTS } from '../../domain/cosmetics'
 import { FOND_STYLES } from '../../theme/fonds'
+import { colors } from '../../theme/tokens'
 
 // Preview visuel d'un cosmétique — utilisé dans les cards du shop et dans la sheet de détail.
 export default function ItemPreview({ c, player, size = 'sm' }) {
@@ -51,13 +52,15 @@ export default function ItemPreview({ c, player, size = 'sm' }) {
   }
 
   if (c.type === 'aura') {
-    const colors = {
-      brut: '#d97706',
-      forge: '#c2410c',
-      eveille: '#b45309',
-      ascendant: '#f5f0e8',
+    // Mêmes tokens que RARITY_STYLES : la palette est la seule source de vérité.
+    // Les attributs SVG (stroke/fill) ne résolvent pas var(), d'où les valeurs JS.
+    const auraColors = {
+      brut: colors.ash,
+      forge: colors.ember,
+      eveille: colors.glow,
+      ascendant: colors.cream,
     }
-    const color = colors[c.rarity] ?? '#d97706'
+    const color = auraColors[c.rarity] ?? colors.ash
     const s = smDim ? 56 : 72
     return (
       <svg width={s} height={s} viewBox="0 0 56 56" aria-hidden="true">

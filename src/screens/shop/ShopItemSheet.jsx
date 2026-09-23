@@ -30,7 +30,8 @@ export default function ShopItemSheet({ item, player, balance, onClose, onBuyReq
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 360, damping: 36 }}
-              className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-forge-light bg-forge px-6 pb-16 pt-6"
+              className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-forge-light bg-forge px-6 pt-6"
+              style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -49,10 +50,10 @@ export default function ShopItemSheet({ item, player, balance, onClose, onBuyReq
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-forge-light text-ash transition-colors hover:border-ember hover:text-ember"
                   aria-label="Fermer"
                 >
-                  <X size={13} />
+                  <X size={16} />
                 </button>
               </div>
 

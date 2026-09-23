@@ -72,7 +72,7 @@ export default function Shop() {
   }
 
   const pill = (active) =>
-    `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] transition-colors ${
+    `inline-flex min-h-9 items-center gap-1.5 rounded-full border px-4 py-1.5 text-[9px] uppercase tracking-[0.2em] transition-colors ${
       active
         ? 'border-ember bg-ember/20 text-cream'
         : 'border-forge-light bg-transparent text-ash hover:border-ember hover:text-cream'
