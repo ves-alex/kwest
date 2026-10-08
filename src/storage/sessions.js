@@ -4,10 +4,16 @@ import { genId } from '../lib/id'
 import { getMetric } from '../domain/exercises'
 import { setsForExercise } from '../domain/sets'
 
+// Mise en service de la validation stricte (commits 8955dd7 / fa8f692). Avant,
+// `validated: false` n'était qu'un défaut sans effet ; après, il veut dire « série
+// non cochée » et doit le rester.
+const STRICT_VALIDATION_SINCE = new Date('2026-07-02T17:51:27+02:00').getTime()
+
 // Migration idempotente : les sessions terminées AVANT l'activation de la validation
 // stricte ont des sets avec `validated: false` (défaut hérité du sprint UX). On les
 // remonte à `validated: true` pour préserver les runes déjà gagnées.
-// Idempotent : ré-appliquer ne change rien.
+// Bornée aux séances antérieures : la migration tourne à chaque lancement, sur
+// chaque appareil, et ne doit jamais valider une série que le joueur n'a pas cochée.
 export function migrateSessionsStrictV1() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -15,7 +21,7 @@ export function migrateSessionsStrictV1() {
     let changed = 0
     const touched = []
     for (const s of sessions) {
-      if (!s.endedAt) continue
+      if (!s.endedAt || new Date(s.endedAt).getTime() >= STRICT_VALIDATION_SINCE) continue
       let sessionChanged = false
       for (const entry of s.entries) {
         for (const set of entry.sets) {

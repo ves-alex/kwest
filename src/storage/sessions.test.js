@@ -73,6 +73,20 @@ describe('migrateSessionsStrictV1', () => {
     expect(localStorage.getItem(SESSIONS_KEY)).toBe(after1)
     expect(pushSessions).not.toHaveBeenCalled()
   })
+
+  it('ne touche pas aux séances terminées sous la validation stricte (série non cochée = non comptée)', () => {
+    const recent = {
+      ...finished(),
+      id: 's3',
+      startedAt: '2026-10-01T18:00:00',
+      endedAt: '2026-10-01T19:00:00',
+    }
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([recent]))
+    migrateSessionsStrictV1()
+    const [s] = JSON.parse(localStorage.getItem(SESSIONS_KEY))
+    expect(s.entries[0].sets.map((x) => x.validated)).toEqual([false, false, true])
+    expect(pushSessions).not.toHaveBeenCalled()
+  })
 })
 
 describe('saveSession / deleteSession — pushes unitaires', () => {
