@@ -4,6 +4,7 @@ import { findExerciseById, getMetric, getMetricUnit } from '../../domain/exercis
 import { getPersonalRecord } from '../../storage/sessions'
 import { setsForExercise } from '../../domain/sets'
 import { bestOneRepMax, sessionOneRepMax } from '../../domain/oneRepMax'
+import { dayKey } from '../../domain/dates'
 import { formatPerf, metricValueUnit } from '../../lib/format'
 import ProgressChart from '../../components/ui/ProgressChart'
 import TrainingHeatmap from '../../components/ui/TrainingHeatmap'
@@ -78,11 +79,7 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
   const exerciseTrainedSet = useMemo(() => {
     const set = new Set()
     for (const s of sessions) {
-      if (s.entries.some((e) => e.exerciseId === selectedExoId)) {
-        const d = new Date(s.startedAt)
-        d.setHours(0, 0, 0, 0)
-        set.add(d.toISOString().slice(0, 10))
-      }
+      if (s.entries.some((e) => e.exerciseId === selectedExoId)) set.add(dayKey(s.startedAt))
     }
     return set
   }, [sessions, selectedExoId])
@@ -91,9 +88,7 @@ function ExerciseDetail({ sessions, exercisesInHistory, selectedExoId, onBack })
     if (!selectedDay) return null
     let best = null
     for (const s of sessions) {
-      const d = new Date(s.startedAt)
-      d.setHours(0, 0, 0, 0)
-      if (d.toISOString().slice(0, 10) !== selectedDay) continue
+      if (dayKey(s.startedAt) !== selectedDay) continue
       for (const set of setsForExercise(s, selectedExoId)) {
         const w = parseFloat(set.weight) || 0
         const r = parseFloat(set.reps) || 0

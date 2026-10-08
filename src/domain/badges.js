@@ -1,4 +1,5 @@
 import { Droplet, Hammer, Sunrise, TrendingUp, Zap, Calendar, Mountain, Target, ShoppingBag, Timer, Coins } from 'lucide-react'
+import { weekIndex } from './dates'
 
 const DAY_MS = 86400000
 
@@ -102,18 +103,11 @@ export const BADGES = [
     description: '4 semaines consécutives avec au moins une séance.',
     Icon: Calendar,
     condition: (_player, sessions) => {
-      const weekSet = new Set()
-      for (const s of sessions) {
-        const d = new Date(s.startedAt)
-        const monday = new Date(d)
-        monday.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1))
-        monday.setHours(0, 0, 0, 0)
-        weekSet.add(monday.getTime())
-      }
-      const weeks = [...weekSet].sort((a, b) => a - b)
+      // Numéros de semaine de calendrier : insensibles au changement d'heure
+      const weeks = [...new Set(sessions.map((s) => weekIndex(s.startedAt)))].sort((a, b) => a - b)
       let streak = 1
       for (let i = 1; i < weeks.length; i++) {
-        if (weeks[i] - weeks[i - 1] === 7 * DAY_MS) {
+        if (weeks[i] - weeks[i - 1] === 1) {
           streak++
           if (streak >= 4) return true
         } else {

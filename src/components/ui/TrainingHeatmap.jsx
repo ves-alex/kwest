@@ -1,3 +1,5 @@
+import { dayKey } from '../../domain/dates'
+
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
 function getMonday(d) {
@@ -74,7 +76,7 @@ export default function TrainingHeatmap({ trainedSet, numWeeks = 12, onDayClick,
           {weeks.map((week, wi) => (
             <div key={wi} className="flex flex-col" style={{ gap: GAP }}>
               {week.map((day, di) => {
-                const key = day.toISOString().slice(0, 10)
+                const key = dayKey(day)
                 const isFuture = day > today
                 const trained = trainedSet.has(key)
                 const isSelected = selectedDay === key
