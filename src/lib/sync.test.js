@@ -121,6 +121,20 @@ describe('deleteSessionCloud', () => {
     expect(sync.getSyncState()).toBe('error')
   })
 
+  it('session illisible (jeton expiré hors ligne) → tombstone conservée, rejouée ensuite', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: null } })
+    const offline = mockTables()
+    await sync.deleteSessionCloud('a')
+    expect(offline.sessionsDeletes).toEqual([])
+    expect(JSON.parse(localStorage.getItem(DELETED_KEY))).toEqual(['a'])
+
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: USER } } } })
+    const calls = mockTables() // le jeton est renouvelé au retour du réseau
+    await sync.resyncAll()
+    expect(calls.sessionsDeletes).toEqual([['a']])
+    expect(JSON.parse(localStorage.getItem(DELETED_KEY))).toEqual([])
+  })
+
   it('resyncAll rejoue la tombstone puis repasse synced', async () => {
     mockTables({ sessionsDeleteError: { message: 'offline' } })
     await sync.deleteSessionCloud('a')

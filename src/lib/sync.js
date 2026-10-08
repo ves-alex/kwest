@@ -87,7 +87,10 @@ export async function deleteSessionCloud(id) {
   addTombstone(id)
   setSyncState('pending')
   const userId = await getUserId()
-  if (!userId) { removeTombstones([id]); setSyncState('synced'); return true }
+  // Pas de session lisible (jeton expiré hors ligne, l'app tourne sur ses
+  // données locales) : la tombstone attend le retour du réseau. Une vraie
+  // déconnexion vide le stockage, tombstones comprises.
+  if (!userId) { setSyncState('synced'); return true }
   const { error } = await supabase.from('sessions').delete().eq('user_id', userId).eq('id', id)
   if (error) {
     console.error('[kwest] deleteSessionCloud failed', error)
