@@ -21,6 +21,7 @@ import { evaluateBadges } from '../domain/badges'
 import { findExerciseById, EQUIPMENT, getMetric, getMetricUnit } from '../domain/exercises'
 import ExerciseThumb from '../components/ui/ExerciseThumb'
 import RestTimer from '../components/ui/RestTimer'
+import { loadRestTimer, clearRestTimer } from '../storage/restTimer'
 import { unlockAudio } from '../lib/sound'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { loadRoutines } from '../storage/routines'
@@ -54,7 +55,8 @@ export default function Session() {
   const [active, setActive] = useState(loadActiveSession)
   const [recap, setRecap] = useState(null)
   const [now, setNow] = useState(() => Date.now())
-  const [showRestTimer, setShowRestTimer] = useState(false)
+  // Un repos en cours survit à « Ajouter un exercice » et à l'app relancée
+  const [showRestTimer, setShowRestTimer] = useState(() => !!active && loadRestTimer() !== null)
   const [restAutoStart, setRestAutoStart] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -94,7 +96,15 @@ export default function Session() {
 
   const handleCancel = () => setShowCancelConfirm(true)
 
+  // Fin de séance (terminée ou abandonnée) : le repos en cours n'a plus de sens
+  const stopRestTimer = () => {
+    clearRestTimer()
+    setShowRestTimer(false)
+    setRestAutoStart(false)
+  }
+
   const confirmCancel = () => {
+    stopRestTimer()
     clearActiveSession()
     setActive(null)
     setShowCancelConfirm(false)
@@ -131,6 +141,7 @@ export default function Session() {
 
   const confirmFinish = () => {
     setShowFinishConfirm(false)
+    stopRestTimer()
     const finished = { ...active, endedAt: new Date().toISOString() }
     const isTimerOnly = finished.entries.length === 0
     const durationMin = (new Date(finished.endedAt) - new Date(finished.startedAt)) / 60000
