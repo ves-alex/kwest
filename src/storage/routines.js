@@ -1,6 +1,9 @@
 import { genId } from '../lib/id'
+import { pushRoutines, deleteRoutineCloud } from '../lib/sync'
+import { ROUTINES_KEY as KEY } from './keys'
 
-const KEY = 'kwest:routines'
+// localStorage d'abord, puis la routine modifiée part au cloud (une ligne par
+// routine, comme les séances) : elles survivent au changement de téléphone.
 
 export function loadRoutines() {
   try {
@@ -25,11 +28,15 @@ export function saveRoutine(routine) {
   const idx = all.findIndex((r) => r.id === routine.id)
   if (idx >= 0) all[idx] = routine
   else all.push(routine)
-  return write(all)
+  const ok = write(all)
+  if (ok) pushRoutines([routine])
+  return ok
 }
 
 export function deleteRoutine(id) {
-  return write(loadRoutines().filter((r) => r.id !== id))
+  const ok = write(loadRoutines().filter((r) => r.id !== id))
+  if (ok) deleteRoutineCloud(id)
+  return ok
 }
 
 export function duplicateRoutine(id) {
@@ -43,7 +50,7 @@ export function duplicateRoutine(id) {
     createdAt: new Date().toISOString(),
   }
   all.push(copy)
-  write(all)
+  if (write(all)) pushRoutines([copy])
   return copy
 }
 
