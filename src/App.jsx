@@ -32,7 +32,7 @@ function App() {
   // attendre le réseau (salle en sous-sol, jeton expiré…) ; le cloud suit en
   // arrière-plan. Sans profil local (première connexion), on attend le cloud.
   const [player, setPlayer] = useState(() => (hasLocalProfile() ? loadPlayer() : null))
-  const [authState, setAuthState] = useState(() => (player ? 'ready' : 'loading')) // 'loading' | 'unauthenticated' | 'ready'
+  const [authState, setAuthState] = useState(() => (player ? 'ready' : 'loading')) // 'loading' | 'unauthenticated' | 'load-error' | 'ready'
 
   useEffect(() => {
     // Filet de sécurité : repousse les données locales dès que le réseau
@@ -48,6 +48,12 @@ function App() {
         loading = loadFromCloud(userId)
           .then((ok) => {
             lastLoadOk = ok
+            // Rien sur le téléphone et cloud injoignable : ce n'est PAS un nouveau
+            // joueur. L'onboarding écraserait le profil sauvegardé au cloud.
+            if (!ok && !hasLocalProfile()) {
+              setAuthState('load-error')
+              return
+            }
             migrateSessionsStrictV1()
             setPlayer(loadPlayer())
             setAuthState('ready')
@@ -89,6 +95,24 @@ function App() {
 
   if (authState === 'loading') {
     return splash
+  }
+
+  if (authState === 'load-error') {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-charcoal px-6 text-center">
+        <p className="font-display text-3xl tracking-widest text-ember">kwest</p>
+        <p className="mt-6 max-w-xs text-sm text-ash">
+          Impossible de charger ta progression. Vérifie ta connexion, puis réessaie.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-8 min-h-11 rounded-md border border-ember bg-forge px-6 py-3 text-xs uppercase tracking-[0.25em] text-cream transition-colors hover:bg-ember/20"
+        >
+          Réessayer
+        </button>
+      </div>
+    )
   }
 
   if (authState === 'unauthenticated') {
