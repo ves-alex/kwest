@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { loadSessions, deleteSession } from '../storage/sessions'
 import { findExerciseById } from '../domain/exercises'
+import { dayKey } from '../domain/dates'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import SessionsList from './stats/SessionsList'
 import StatsOverview from './stats/StatsOverview'
@@ -34,11 +35,7 @@ export default function Stats() {
 
   const trainedSet = useMemo(() => {
     const set = new Set()
-    for (const s of sessions) {
-      const d = new Date(s.startedAt)
-      d.setHours(0, 0, 0, 0)
-      set.add(d.toISOString().slice(0, 10))
-    }
+    for (const s of sessions) set.add(dayKey(s.startedAt))
     return set
   }, [sessions])
 

@@ -30,6 +30,18 @@ describe('conditions des badges', () => {
     expect(has(evaluateBadges(PLAYER, espacees), 'maitre-momentum')).toBe(false)
   })
 
+  it('semaine-apres-semaine : 4 semaines consécutives, même à travers un changement d\'heure', () => {
+    const quatre = [
+      s('2026-10-07T10:00:00'),
+      s('2026-10-14T10:00:00'),
+      s('2026-10-21T10:00:00'),
+      s('2026-10-28T10:00:00'), // semaine qui suit le passage à l'heure d'hiver
+    ]
+    const trou = [s('2026-09-02T10:00:00'), s('2026-09-09T10:00:00'), s('2026-09-23T10:00:00'), s('2026-09-30T10:00:00')]
+    expect(has(evaluateBadges(PLAYER, quatre), 'semaine-apres-semaine')).toBe(true)
+    expect(has(evaluateBadges(PLAYER, trou), 'semaine-apres-semaine')).toBe(false)
+  })
+
   it('retour-guerrier : reprise après 7 jours ou plus de pause', () => {
     const avecPause = [s('2026-06-01T10:00:00'), s('2026-06-15T10:00:00')]
     expect(has(evaluateBadges(PLAYER, avecPause), 'retour-guerrier')).toBe(true)

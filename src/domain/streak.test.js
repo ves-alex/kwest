@@ -61,3 +61,57 @@ describe('computeWeeklyStats', () => {
     expect(computeWeeklyStats([])).toEqual({ weekSessions: 0, streak: 0, recordStreak: 0 })
   })
 })
+
+// La semaine du changement d'heure dure 167 ou 169 h, pas 168. Ces cas ne
+// cassent qu'en heure locale française : la CI les rejoue en TZ=Europe/Paris.
+describe("computeWeeklyStats — changement d'heure", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("passage à l'heure d'hiver (25/10/2026) : la chaîne ne casse pas", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T12:00:00'))
+    const stats = computeWeeklyStats([
+      s('2026-10-07T10:00:00'),
+      s('2026-10-14T10:00:00'),
+      s('2026-10-21T10:00:00'),
+      s('2026-10-28T10:00:00'),
+    ])
+    expect(stats.streak).toBe(4)
+    expect(stats.recordStreak).toBe(4)
+  })
+
+  it("passage à l'heure d'été (28/03/2027) : la chaîne ne casse pas", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2027-04-07T12:00:00'))
+    const stats = computeWeeklyStats([
+      s('2027-03-17T10:00:00'),
+      s('2027-03-24T10:00:00'),
+      s('2027-03-31T10:00:00'),
+      s('2027-04-07T10:00:00'),
+    ])
+    expect(stats.streak).toBe(4)
+    expect(stats.recordStreak).toBe(4)
+  })
+
+  it("lundi matin après le changement d'heure : la semaine passée garde la chaîne", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T08:00:00'))
+    const stats = computeWeeklyStats([
+      s('2026-10-14T10:00:00'),
+      s('2026-10-21T10:00:00'),
+    ])
+    expect(stats.streak).toBe(2)
+  })
+
+  it("dimanche soir de la semaine du changement d'heure : compté dans la semaine", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-25T23:45:00'))
+    const stats = computeWeeklyStats([
+      s('2026-10-19T10:00:00'),
+      s('2026-10-25T23:30:00'),
+    ])
+    expect(stats.weekSessions).toBe(2)
+  })
+})

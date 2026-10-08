@@ -20,4 +20,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # Les runners sont en UTC : on rejoue les tests à l'heure française, où les
+      # dates locales et les semaines du changement d'heure peuvent se tromper.
+      - name: npm test (TZ=Europe/Paris)
+        run: npm test
+        env:
+          TZ: Europe/Paris
       - run: npm run build
