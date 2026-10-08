@@ -1,65 +1,82 @@
 import { supabase } from './supabase'
-import { PLAYER_KEY, SESSIONS_KEY, DELETED_KEY, PENDING_KEY, OWNER_KEY } from '../storage/keys'
+import {
+  PLAYER_KEY,
+  SESSIONS_KEY,
+  ROUTINES_KEY,
+  DELETED_KEY,
+  DELETED_ROUTINES_KEY,
+  PENDING_KEY,
+  OWNER_KEY,
+} from '../storage/keys'
 
 // ============================================================================
-// Modèle cloud : une ligne par séance.
-// - table `sessions`  : PK (user_id, id), data JSONB — upserts/deletes unitaires,
-//   plus jamais de blob complet sur le réseau.
+// Modèle cloud : une ligne par élément.
+// - tables `sessions` et `routines` : PK (user_id, id), data JSONB — upserts/
+//   deletes unitaires, plus jamais de blob complet sur le réseau.
+// - table `deletions` : trace des suppressions, pour qu'un autre appareil ne
+//   renvoie pas au cloud ce qui a été supprimé ailleurs.
 // - table `user_data` : player JSONB uniquement. Le champ historique `sessions`
 //   (blob) est migré vers la table au premier lancement, puis remis à null.
 // localStorage reste la source de vérité locale ; le cloud est un miroir.
 // Ce qui n'a pas encore atteint le cloud est noté dans une file persistante
-// (séances modifiées, profil modifié, suppressions) : elle survit à l'app tuée,
+// (éléments modifiés, profil modifié, suppressions) : elle survit à l'app tuée,
 // et la fusion au démarrage ne l'écrase jamais.
 // ============================================================================
+
+// Collections synchronisées ligne par ligne
+const COLLECTIONS = {
+  sessions: { table: 'sessions', key: SESSIONS_KEY, deletedKey: DELETED_KEY, kind: 'session' },
+  routines: { table: 'routines', key: ROUTINES_KEY, deletedKey: DELETED_ROUTINES_KEY, kind: 'routine' },
+}
+const NAMES = Object.keys(COLLECTIONS)
 
 let playerTimer = null
 let inflight = 0
 
 // --- File d'attente persistante ---
-// sessions : ids des séances modifiées ici et pas encore confirmées par le cloud
-// player   : profil modifié ici et pas encore confirmé
+// sessions / routines : ids des éléments modifiés ici et pas encore confirmés
+// player              : profil modifié ici et pas encore confirmé
 // (les suppressions ont leur propre file : les tombstones, plus bas)
 function loadPending() {
   try {
     const p = JSON.parse(localStorage.getItem(PENDING_KEY) ?? 'null')
-    return { sessions: p?.sessions ?? [], player: !!p?.player }
+    return { sessions: p?.sessions ?? [], routines: p?.routines ?? [], player: !!p?.player }
   } catch {
-    return { sessions: [], player: false }
+    return { sessions: [], routines: [], player: false }
   }
 }
 function savePending(p) {
   try { localStorage.setItem(PENDING_KEY, JSON.stringify(p)) } catch { /* best-effort */ }
 }
-function markSessionsPending(ids) {
+function markPending(name, ids) {
   const p = loadPending()
-  savePending({ ...p, sessions: [...new Set([...p.sessions, ...ids])] })
+  savePending({ ...p, [name]: [...new Set([...p[name], ...ids])] })
 }
-function unmarkSessions(ids) {
+function unmarkPending(name, ids) {
   const done = new Set(ids)
   const p = loadPending()
-  savePending({ ...p, sessions: p.sessions.filter((id) => !done.has(id)) })
+  savePending({ ...p, [name]: p[name].filter((id) => !done.has(id)) })
 }
 function setPlayerPending(value) {
   savePending({ ...loadPending(), player: value })
 }
 
-function loadLocalSessions() {
-  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]') } catch { return [] }
+function loadLocal(name) {
+  try { return JSON.parse(localStorage.getItem(COLLECTIONS[name].key) ?? '[]') } catch { return [] }
 }
 
-// Retire de la file les séances confirmées par le cloud — sauf celles modifiées
+// Retire de la file les éléments confirmés par le cloud — sauf ceux modifiés
 // de nouveau pendant l'envoi : leur nouvelle version reste à envoyer.
-function confirmSessions(pushed) {
-  const local = new Map(loadLocalSessions().map((s) => [s.id, JSON.stringify(s)]))
-  const done = pushed.filter((s) => !local.has(s.id) || local.get(s.id) === JSON.stringify(s))
-  unmarkSessions(done.map((s) => s.id))
+function confirmRows(name, pushed) {
+  const local = new Map(loadLocal(name).map((x) => [x.id, JSON.stringify(x)]))
+  const done = pushed.filter((x) => !local.has(x.id) || local.get(x.id) === JSON.stringify(x))
+  unmarkPending(name, done.map((x) => x.id))
 }
 
 // Quelque chose attend-il encore le cloud ?
 export function hasPendingSync() {
   const p = loadPending()
-  return p.sessions.length > 0 || p.player || loadTombstones().length > 0
+  return p.player || NAMES.some((name) => p[name].length > 0 || loadTombstones(name).length > 0)
 }
 
 // --- État de synchronisation (dérivé de la file) ---
@@ -85,36 +102,43 @@ async function getUserId() {
   return session?.user?.id ?? null
 }
 
-function rowOf(userId, s) {
-  return { user_id: userId, id: s.id, data: s, updated_at: new Date().toISOString() }
+function rowOf(userId, x) {
+  return { user_id: userId, id: x.id, data: x, updated_at: new Date().toISOString() }
 }
 
 // --- Tombstones : suppressions cloud à rejouer ---
-// Une séance supprimée hors-ligne resterait au cloud et « ressusciterait » à la
+// Un élément supprimé hors-ligne resterait au cloud et « ressusciterait » à la
 // fusion suivante. On note l'id jusqu'à confirmation du DELETE.
-function loadTombstones() {
-  try { return JSON.parse(localStorage.getItem(DELETED_KEY) ?? '[]') } catch { return [] }
+function loadTombstones(name) {
+  try { return JSON.parse(localStorage.getItem(COLLECTIONS[name].deletedKey) ?? '[]') } catch { return [] }
 }
-function saveTombstones(ids) {
-  try { localStorage.setItem(DELETED_KEY, JSON.stringify(ids)) } catch { /* best-effort */ }
+function saveTombstones(name, ids) {
+  try { localStorage.setItem(COLLECTIONS[name].deletedKey, JSON.stringify(ids)) } catch { /* best-effort */ }
 }
-function addTombstone(id) {
-  saveTombstones([...new Set([...loadTombstones(), id])])
+function addTombstones(name, ids) {
+  saveTombstones(name, [...new Set([...loadTombstones(name), ...ids])])
 }
-function removeTombstones(ids) {
+function removeTombstones(name, ids) {
   const gone = new Set(ids)
-  saveTombstones(loadTombstones().filter((x) => !gone.has(x)))
+  saveTombstones(name, loadTombstones(name).filter((x) => !gone.has(x)))
 }
 
-async function flushTombstones(userId) {
-  const ids = loadTombstones()
+async function flushTombstones(name, userId) {
+  const ids = loadTombstones(name)
   if (ids.length === 0) return true
-  const { error } = await supabase.from('sessions').delete().eq('user_id', userId).in('id', ids)
+  const { table, kind } = COLLECTIONS[name]
+  // D'abord la trace (pour les autres appareils), puis la ligne. La trace est
+  // un bonus : son échec n'empêche pas la suppression elle-même.
+  const { error: traceErr } = await supabase
+    .from('deletions')
+    .upsert(ids.map((id) => ({ user_id: userId, kind, id })))
+  if (traceErr) console.error('[kwest] trace des suppressions ratée', traceErr)
+  const { error } = await supabase.from(table).delete().eq('user_id', userId).in('id', ids)
   if (error) {
-    console.error('[kwest] flushTombstones failed', error)
+    console.error(`[kwest] suppression ${table} ratée`, error)
     return false
   }
-  removeTombstones(ids)
+  removeTombstones(name, ids)
   return true
 }
 
@@ -136,45 +160,45 @@ async function track(op) {
 
 // --- Pushes unitaires ---
 
-// Upsert d'une ou plusieurs séances (une ligne chacune). Fire-and-forget côté
-// appelant ; tant que le cloud n'a pas confirmé, elles restent dans la file.
-export async function pushSessions(list) {
-  if (!list?.length) return true
-  markSessionsPending(list.map((s) => s.id))
+// Upsert d'un ou plusieurs éléments (une ligne chacun). Fire-and-forget côté
+// appelant ; tant que le cloud n'a pas confirmé, ils restent dans la file.
+function pushRows(name, list) {
+  if (!list?.length) return Promise.resolve(true)
+  markPending(name, list.map((x) => x.id))
   return track(async () => {
     const userId = await getUserId()
     // Pas de session lisible (jeton expiré hors ligne) : la file attend le retour du réseau
     if (!userId) return false
-    const { error } = await supabase.from('sessions').upsert(list.map((s) => rowOf(userId, s)))
+    const { table } = COLLECTIONS[name]
+    const { error } = await supabase.from(table).upsert(list.map((x) => rowOf(userId, x)))
     if (error) {
-      console.error('[kwest] pushSessions failed', error)
+      console.error(`[kwest] envoi ${table} raté`, error)
       return false
     }
-    confirmSessions(list)
+    confirmRows(name, list)
     return true
   })
 }
 
 // Suppression définitive au cloud. En cas d'échec (offline…), la tombstone
 // reste posée et sera rejouée par resyncAll / loadFromCloud.
-export async function deleteSessionCloud(id) {
-  addTombstone(id)
-  unmarkSessions([id]) // la suppression remplace un éventuel envoi en attente
+function deleteRowCloud(name, id) {
+  addTombstones(name, [id])
+  unmarkPending(name, [id]) // la suppression remplace un éventuel envoi en attente
   return track(async () => {
     const userId = await getUserId()
     // Pas de session lisible (jeton expiré hors ligne, l'app tourne sur ses
     // données locales) : la tombstone attend le retour du réseau. Une vraie
     // déconnexion vide le stockage, tombstones comprises.
     if (!userId) return false
-    const { error } = await supabase.from('sessions').delete().eq('user_id', userId).eq('id', id)
-    if (error) {
-      console.error('[kwest] deleteSessionCloud failed', error)
-      return false
-    }
-    removeTombstones([id])
-    return true
+    return flushTombstones(name, userId)
   })
 }
+
+export const pushSessions = (list) => pushRows('sessions', list)
+export const deleteSessionCloud = (id) => deleteRowCloud('sessions', id)
+export const pushRoutines = (list) => pushRows('routines', list)
+export const deleteRoutineCloud = (id) => deleteRowCloud('routines', id)
 
 // --- Player (debounce 2 s) ---
 export function pushPlayer({ immediate = false } = {}) {
@@ -211,19 +235,21 @@ function doPushPlayer() {
 }
 
 // --- Réparation : renvoie ce qui attend dans la file (suppressions, profil,
-// séances modifiées). Déclenchée au retour du réseau / au premier plan.
+// éléments modifiés). Déclenchée au retour du réseau / au premier plan.
 export async function resyncAll() {
   return track(async () => {
     const userId = await getUserId()
     if (!userId) return false
-    await flushTombstones(userId)
+    for (const name of NAMES) await flushTombstones(name, userId)
     const pending = loadPending()
     if (pending.player) await doPushPlayer()
-    const ids = new Set(pending.sessions)
-    const dirty = loadLocalSessions().filter((s) => ids.has(s.id))
-    // Ids en attente qui n'existent plus en local : plus rien à envoyer
-    unmarkSessions([...ids].filter((id) => !dirty.some((s) => s.id === id)))
-    if (dirty.length > 0) await pushSessions(dirty)
+    for (const name of NAMES) {
+      const ids = new Set(pending[name])
+      const dirty = loadLocal(name).filter((x) => ids.has(x.id))
+      // Ids en attente qui n'existent plus en local : plus rien à envoyer
+      unmarkPending(name, [...ids].filter((id) => !dirty.some((x) => x.id === id)))
+      if (dirty.length > 0) await pushRows(name, dirty)
+    }
     return !hasPendingSync()
   })
 }
@@ -253,6 +279,38 @@ export function clearLocalData() {
     }
   } catch { /* best-effort */ }
   refreshSyncState()
+}
+
+// Fusionne une collection : cloud prioritaire par id, SAUF les éléments
+// modifiés ici et pas encore confirmés (file d'attente) ; locaux absents du
+// cloud renvoyés ; supprimés (ici ou sur un autre appareil) écartés.
+async function mergeCollection(name, userId, cloudItems, deletedElsewhere) {
+  const byId = new Map(cloudItems.map((x) => [x.id, x]))
+
+  // Supprimés sur un autre appareil : jamais gardés ni renvoyés. Une ligne
+  // remise au cloud entre-temps (ancienne version de l'app) est re-supprimée.
+  const resurrected = [...byId.keys()].filter((id) => deletedElsewhere.has(id))
+  if (resurrected.length > 0) addTombstones(name, resurrected)
+  unmarkPending(name, [...deletedElsewhere])
+
+  // Suppressions en attente : rejouées avant la fusion pour qu'un élément
+  // supprimé hors-ligne ne revienne pas
+  const tombstones = new Set(loadTombstones(name))
+  if (tombstones.size > 0) await flushTombstones(name, userId)
+  for (const id of [...tombstones, ...deletedElsewhere]) byId.delete(id)
+
+  const pending = new Set(loadPending()[name])
+  const local = loadLocal(name).filter((x) => !deletedElsewhere.has(x.id))
+  const dirty = local.filter((x) => pending.has(x.id))
+  for (const x of dirty) byId.set(x.id, x)
+  const localOnly = local.filter((x) => !byId.has(x.id) && !tombstones.has(x.id))
+  localStorage.setItem(COLLECTIONS[name].key, JSON.stringify([...byId.values(), ...localOnly]))
+
+  const toPush = [...dirty, ...localOnly]
+  if (toPush.length > 0) {
+    console.log(`[kwest] loadFromCloud : ${toPush.length} élément(s) ${name} renvoyé(s)`)
+    await pushRows(name, toPush)
+  }
 }
 
 // --- Chargement au démarrage : migration éventuelle du blob, puis fusion ---
@@ -310,36 +368,33 @@ export async function loadFromCloud(userId) {
       console.error('[kwest] loadFromCloud failed', sesErr)
       return false
     }
-    const byId = new Map()
-    for (const s of blobSessions) byId.set(s.id, s)
-    for (const r of rows ?? []) byId.set(r.data.id, r.data)
 
-    // 4. Suppressions en attente : rejouées avant la fusion pour qu'une séance
-    //    supprimée hors-ligne ne revienne pas
-    const tombstones = new Set(loadTombstones())
-    if (tombstones.size > 0) {
-      await flushTombstones(userId)
-      for (const id of tombstones) byId.delete(id)
-    }
+    // 4. Suppressions faites sur les autres appareils (illisibles = aucune :
+    //    on ne bloque pas le chargement pour autant)
+    const deleted = { session: new Set(), routine: new Set() }
+    const { data: delRows, error: delErr } = await supabase
+      .from('deletions')
+      .select('kind, id')
+      .eq('user_id', userId)
+    if (delErr) console.error('[kwest] trace des suppressions illisible', delErr)
+    for (const r of delRows ?? []) deleted[r.kind]?.add(r.id)
 
-    // 5. Fusion séances : cloud prioritaire par id, SAUF les séances modifiées
-    //    ici et pas encore confirmées (file d'attente) ; locales absentes réinjectées
-    const pending = loadPending()
-    const localSessions = loadLocalSessions()
-    const dirty = localSessions.filter((s) => pending.sessions.includes(s.id))
-    for (const s of dirty) byId.set(s.id, s)
-    const localOnly = localSessions.filter((s) => !byId.has(s.id) && !tombstones.has(s.id))
-    const merged = [...byId.values(), ...localOnly]
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(merged))
-    const toPush = [...dirty, ...localOnly]
-    if (toPush.length > 0) {
-      console.log(`[kwest] loadFromCloud : ${toPush.length} séance(s) locale(s) renvoyée(s)`)
-      await pushSessions(toPush)
-    }
+    // 5. Fusion des séances
+    await mergeCollection('sessions', userId, [...blobSessions, ...(rows ?? []).map((r) => r.data)], deleted.session)
 
-    // 6. Player : union des possessions, max des compteurs (les totaux
+    // 6. Fusion des routines (illisibles : on garde les locales telles quelles,
+    //    elles partiront au prochain chargement réussi)
+    const { data: routineRows, error: rtErr } = await supabase
+      .from('routines')
+      .select('data')
+      .eq('user_id', userId)
+    if (rtErr) console.error('[kwest] routines illisibles', rtErr)
+    else await mergeCollection('routines', userId, (routineRows ?? []).map((r) => r.data), deleted.routine)
+
+    // 7. Player : union des possessions, max des compteurs (les totaux
     //    runes/XP sont recalculés depuis les sessions par loadPlayer). Profil
     //    modifié ici et pas encore confirmé : ses réglages l'emportent.
+    const pending = loadPending()
     const localPlayer = JSON.parse(localStorage.getItem(PLAYER_KEY) ?? 'null')
     const mergedPlayer = userRow?.player
       ? mergePlayer(userRow.player, localPlayer, { preferLocal: pending.player })
@@ -377,19 +432,20 @@ function mergePlayer(cloud, local, { preferLocal = false } = {}) {
   }
 }
 
-// Efface la progression cloud + local + déconnecte Google.
-// Note : Supabase ne permet pas de supprimer auth.users depuis le client (nécessite
-// une Edge Function avec service role). Se reconnecter avec le même Google recréera
-// un onboarding vierge (rows absentes = comme un nouveau compte).
+// Supprime le compte pour de bon : données ET identité (fonction SQL
+// delete_my_account, voir supabase/routines-suppressions-compte.sql). En cas
+// d'erreur rien n'est supprimé et l'erreur remonte à l'écran.
 export async function deleteAccount() {
-  const userId = await getUserId()
-  if (!userId) return
-  const { error: sesErr } = await supabase.from('sessions').delete().eq('user_id', userId)
-  const { error: userErr } = await supabase.from('user_data').delete().eq('id', userId)
-  if (sesErr || userErr) {
-    console.error('[kwest] deleteAccount failed', sesErr ?? userErr)
-    throw sesErr ?? userErr
+  clearTimeout(playerTimer) // plus aucun envoi du profil après la suppression
+  playerTimer = null
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) {
+    console.error('[kwest] deleteAccount failed', error)
+    throw error
   }
+  // Le compte n'existe plus : on ferme la session de ce téléphone (les autres
+  // sont invalidées côté serveur), puis on vide le stockage
+  const { error: outErr } = await supabase.auth.signOut({ scope: 'local' })
   localStorage.clear()
-  await supabase.auth.signOut()
+  if (outErr) window.location.reload()
 }

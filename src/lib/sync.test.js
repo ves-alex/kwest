@@ -3,8 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Supabase mocké : routage par table, appels enregistrés pour les assertions.
 vi.mock('./supabase', () => ({
   supabase: {
-    auth: { getSession: vi.fn() },
+    auth: { getSession: vi.fn(), signOut: vi.fn() },
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }))
 
@@ -12,6 +13,8 @@ const USER = 'u1'
 const DELETED_KEY = 'kwest:deleted-sessions'
 const SESSIONS_KEY = 'kwest:sessions'
 const PLAYER_KEY = 'kwest:player'
+const ROUTINES_KEY = 'kwest:routines'
+const DELETED_ROUTINES_KEY = 'kwest:deleted-routines'
 const PENDING_KEY = 'kwest:pending'
 const OWNER_KEY = 'kwest:owner'
 
@@ -47,6 +50,7 @@ beforeEach(async () => {
   vi.resetModules()
   sync = await import('./sync')
   ;({ supabase } = await import('./supabase'))
+  vi.clearAllMocks() // l'historique des appels ne passe pas d'un test à l'autre
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'log').mockImplementation(() => {})
   supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: USER } } } })
@@ -58,21 +62,38 @@ function mockTables({
   sessionsUpsertError = null,
   sessionsDeleteError = null,
   userUpsertError = null,
+  routineRows = [],
+  routinesError = null,
+  deletionRows = [],
+  deletionsError = null,
 } = {}) {
-  const calls = { sessionsUpserts: [], sessionsDeletes: [], userUpserts: [], userUpdates: [] }
+  const calls = {
+    sessionsUpserts: [], sessionsDeletes: [], userUpserts: [], userUpdates: [],
+    routinesUpserts: [], routinesDeletes: [], deletionUpserts: [],
+  }
 
-  const deleteResult = () => Promise.resolve({ error: sessionsDeleteError })
-  const sessionsTable = {
-    select: () => ({ eq: () => Promise.resolve({ data: sessionRows.map((s) => ({ data: s })), error: null }) }),
-    upsert: (rows) => { calls.sessionsUpserts.push(rows); return Promise.resolve({ error: sessionsUpsertError }) },
+  // Table « une ligne par élément » (sessions, routines)
+  const rowsTable = ({ rows, upserts, deletes, upsertError = null, deleteError = null, readError = null }) => ({
+    select: () => ({ eq: () => Promise.resolve({ data: readError ? null : rows.map((x) => ({ data: x })), error: readError }) }),
+    upsert: (r) => { upserts.push(r); return Promise.resolve({ error: upsertError }) },
     delete: () => ({
-      // .eq('user_id', …) est soit chaîné (.eq / .in), soit await-é tel quel (deleteAccount)
       eq: () => ({
-        eq: (_c, id) => { calls.sessionsDeletes.push([id]); return deleteResult() },
-        in: (_c, ids) => { calls.sessionsDeletes.push(ids); return deleteResult() },
-        then: (resolve) => deleteResult().then(resolve),
+        eq: (_c, id) => { deletes.push([id]); return Promise.resolve({ error: deleteError }) },
+        in: (_c, ids) => { deletes.push(ids); return Promise.resolve({ error: deleteError }) },
       }),
     }),
+  })
+  const sessionsTable = rowsTable({
+    rows: sessionRows, upserts: calls.sessionsUpserts, deletes: calls.sessionsDeletes,
+    upsertError: sessionsUpsertError, deleteError: sessionsDeleteError,
+  })
+  const routinesTable = rowsTable({
+    rows: routineRows, upserts: calls.routinesUpserts, deletes: calls.routinesDeletes,
+    upsertError: routinesError, deleteError: routinesError, readError: routinesError,
+  })
+  const deletionsTable = {
+    select: () => ({ eq: () => Promise.resolve({ data: deletionsError ? null : deletionRows, error: deletionsError }) }),
+    upsert: (r) => { calls.deletionUpserts.push(r); return Promise.resolve({ error: deletionsError }) },
   }
   const userTable = {
     select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: userRow, error: null }) }) }),
@@ -80,7 +101,8 @@ function mockTables({
     update: (patch) => ({ eq: () => { calls.userUpdates.push(patch); return Promise.resolve({ error: null }) } }),
     delete: () => ({ eq: () => Promise.resolve({ error: null }) }),
   }
-  supabase.from.mockImplementation((t) => (t === 'sessions' ? sessionsTable : userTable))
+  const tables = { sessions: sessionsTable, routines: routinesTable, deletions: deletionsTable, user_data: userTable }
+  supabase.from.mockImplementation((t) => tables[t])
   return calls
 }
 
@@ -348,5 +370,116 @@ describe('loadFromCloud', () => {
     const p = JSON.parse(localStorage.getItem(PLAYER_KEY))
     expect(p.cosmeticsOwned.sort()).toEqual(['x', 'y'])
     expect(p.runesSpent).toBe(100)
+  })
+})
+
+const R1 = { id: 'r1', name: 'Push', exerciseIds: ['pompes'] }
+const R2 = { id: 'r2', name: 'Pull', exerciseIds: ['tractions'] }
+
+describe('routines', () => {
+  it('pushRoutines : une ligne par routine dans la table routines', async () => {
+    localStorage.setItem(ROUTINES_KEY, JSON.stringify([R1]))
+    const calls = mockTables()
+    expect(await sync.pushRoutines([R1])).toBe(true)
+    expect(calls.routinesUpserts[0]).toMatchObject([{ user_id: USER, id: 'r1', data: R1 }])
+    expect(sync.getSyncState()).toBe('synced')
+  })
+
+  it('chargement : routines du cloud récupérées, routines locales envoyées', async () => {
+    localStorage.setItem(ROUTINES_KEY, JSON.stringify([R1]))
+    const calls = mockTables({ userRow: { player: {}, sessions: null }, routineRows: [R2] })
+
+    await sync.loadFromCloud(USER)
+
+    expect(JSON.parse(localStorage.getItem(ROUTINES_KEY)).map((r) => r.id).sort()).toEqual(['r1', 'r2'])
+    expect(calls.routinesUpserts.flat().map((r) => r.id)).toEqual(['r1'])
+  })
+
+  it('table routines absente (script SQL pas encore passé) : séances fusionnées, routines locales intactes', async () => {
+    localStorage.setItem(ROUTINES_KEY, JSON.stringify([R1]))
+    mockTables({ userRow: { player: {}, sessions: null }, sessionRows: [A], routinesError: { message: 'relation "routines" does not exist' } })
+
+    expect(await sync.loadFromCloud(USER)).toBe(true)
+
+    expect(JSON.parse(localStorage.getItem(SESSIONS_KEY)).map((s) => s.id)).toEqual(['a'])
+    expect(JSON.parse(localStorage.getItem(ROUTINES_KEY))).toEqual([R1])
+  })
+
+  it('suppression : tracée puis supprimée du cloud', async () => {
+    const calls = mockTables()
+    expect(await sync.deleteRoutineCloud('r1')).toBe(true)
+    expect(calls.deletionUpserts).toEqual([[{ user_id: USER, kind: 'routine', id: 'r1' }]])
+    expect(calls.routinesDeletes).toEqual([['r1']])
+    expect(JSON.parse(localStorage.getItem(DELETED_ROUTINES_KEY))).toEqual([])
+  })
+})
+
+describe('suppressions entre appareils', () => {
+  it('une séance supprimée est tracée avant d\'être retirée du cloud', async () => {
+    const calls = mockTables()
+    await sync.deleteSessionCloud('a')
+    expect(calls.deletionUpserts).toEqual([[{ user_id: USER, kind: 'session', id: 'a' }]])
+    expect(calls.sessionsDeletes).toEqual([['a']])
+  })
+
+  it('supprimée sur un autre appareil : retirée ici, jamais renvoyée au cloud', async () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([A, B])) // cet appareil a encore « a »
+    localStorage.setItem(PENDING_KEY, JSON.stringify({ sessions: ['a'], routines: [], player: false }))
+    const calls = mockTables({
+      userRow: { player: {}, sessions: null },
+      sessionRows: [B],
+      deletionRows: [{ kind: 'session', id: 'a' }],
+    })
+
+    await sync.loadFromCloud(USER)
+
+    expect(JSON.parse(localStorage.getItem(SESSIONS_KEY)).map((s) => s.id)).toEqual(['b'])
+    expect(calls.sessionsUpserts.flat().map((r) => r.id)).not.toContain('a')
+    expect(sync.hasPendingSync()).toBe(false)
+  })
+
+  it('remise au cloud par une ancienne version de l\'app : re-supprimée', async () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([]))
+    const calls = mockTables({
+      userRow: { player: {}, sessions: null },
+      sessionRows: [A, B],
+      deletionRows: [{ kind: 'session', id: 'a' }],
+    })
+
+    await sync.loadFromCloud(USER)
+
+    expect(JSON.parse(localStorage.getItem(SESSIONS_KEY)).map((s) => s.id)).toEqual(['b'])
+    expect(calls.sessionsDeletes).toEqual([['a']])
+  })
+
+  it('trace illisible (script SQL pas encore passé) : le chargement continue', async () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([A]))
+    mockTables({ userRow: { player: {}, sessions: null }, sessionRows: [A], deletionsError: { message: 'relation "deletions" does not exist' } })
+    expect(await sync.loadFromCloud(USER)).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SESSIONS_KEY)).map((s) => s.id)).toEqual(['a'])
+  })
+})
+
+describe('deleteAccount', () => {
+  it('supprime le compte côté serveur, ferme la session de ce téléphone, puis vide le stockage', async () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([A]))
+    supabase.rpc.mockResolvedValue({ error: null })
+    supabase.auth.signOut.mockResolvedValue({ error: null })
+
+    await sync.deleteAccount()
+
+    expect(supabase.rpc).toHaveBeenCalledWith('delete_my_account')
+    expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('échec : rien n\'est effacé, l\'erreur remonte à l\'écran', async () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([A]))
+    supabase.rpc.mockResolvedValue({ error: { message: 'réseau KO' } })
+
+    await expect(sync.deleteAccount()).rejects.toBeTruthy()
+
+    expect(supabase.auth.signOut).not.toHaveBeenCalled()
+    expect(JSON.parse(localStorage.getItem(SESSIONS_KEY))).toEqual([A])
   })
 })

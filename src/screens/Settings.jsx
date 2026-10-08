@@ -5,7 +5,6 @@ import { loadPlayer, setGender, setWeeklyGoal } from '../storage/player'
 import { supabase } from '../lib/supabase'
 import { deleteAccount, hasPendingSync, resyncAll } from '../lib/sync'
 import { loadActiveSession } from '../storage/sessions'
-import { loadRoutines } from '../storage/routines'
 import ConfirmModal from '../components/ui/ConfirmModal'
 
 const GENDERS = [
@@ -21,8 +20,6 @@ function unsavedOnDevice() {
   const items = []
   if (hasPendingSync()) items.push('des modifications pas encore envoyées')
   if (loadActiveSession()) items.push('ta séance en cours')
-  const n = loadRoutines().length
-  if (n > 0) items.push(n > 1 ? `tes ${n} routines` : 'ta routine')
   return items
 }
 
@@ -38,6 +35,7 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false)
   const [logoutRisks, setLogoutRisks] = useState([])
   const [logoutError, setLogoutError] = useState(null)
+  const [deleteError, setDeleteError] = useState(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
@@ -71,10 +69,13 @@ export default function Settings() {
 
   const handleDelete = async () => {
     setDeleting(true)
+    setDeleteError(null)
     try {
       await deleteAccount()
     } catch {
       setDeleting(false)
+      setConfirmDelete(false)
+      setDeleteError('Suppression impossible : rien n’a été effacé. Vérifie ta connexion et réessaie.')
     }
   }
 
@@ -198,8 +199,8 @@ export default function Settings() {
               <Trash2 size={12} />
               Supprimer mon compte
             </button>
-            {logoutError && (
-              <p role="alert" className="text-center text-xs text-ember">{logoutError}</p>
+            {(logoutError || deleteError) && (
+              <p role="alert" className="text-center text-xs text-ember">{logoutError ?? deleteError}</p>
             )}
           </div>
         </div>
@@ -235,7 +236,7 @@ export default function Settings() {
         message={
           deleting
             ? 'Suppression en cours…'
-            : "Toutes tes séances, runes et badges seront définitivement effacés du cloud. Si tu te reconnectes plus tard avec le même Google, tu repartiras de zéro. Cette action est irréversible."
+            : "Ton compte et toutes tes séances, routines, runes et badges seront définitivement effacés. Tu pourras en recréer un avec le même Google, en repartant de zéro. Cette action est irréversible."
         }
         confirmLabel="Supprimer définitivement"
         cancelLabel="Annuler"
