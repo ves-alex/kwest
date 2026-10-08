@@ -4,6 +4,7 @@ import { loadPlayer } from './storage/player'
 import { migrateSessionsStrictV1 } from './storage/sessions'
 import { supabase } from './lib/supabase'
 import { loadFromCloud, initSyncRetry } from './lib/sync'
+import { hasLocalProfile, canStayOffline } from './lib/startup'
 import Layout from './components/Layout'
 import Home from './screens/Home'
 import Session from './screens/Session'
@@ -27,36 +28,55 @@ const splash = (
 )
 
 function App() {
-  const [authState, setAuthState] = useState('loading') // 'loading' | 'unauthenticated' | 'ready'
-  const [player, setPlayer] = useState(null)
+  // Profil déjà sur le téléphone : l'app s'ouvre tout de suite dessus, sans
+  // attendre le réseau (salle en sous-sol, jeton expiré…) ; le cloud suit en
+  // arrière-plan. Sans profil local (première connexion), on attend le cloud.
+  const [player, setPlayer] = useState(() => (hasLocalProfile() ? loadPlayer() : null))
+  const [authState, setAuthState] = useState(() => (player ? 'ready' : 'loading')) // 'loading' | 'unauthenticated' | 'ready'
 
   useEffect(() => {
     // Filet de sécurité : repousse les données locales dès que le réseau
     // revient ou que la PWA repasse au premier plan (push raté à la salle…)
     initSyncRetry()
 
+    // Un seul chargement cloud à la fois (démarrage, retour au premier plan,
+    // jeton renouvelé au retour du réseau)
+    let loading = null
+    let lastLoadOk = false
+    const syncWithCloud = (userId) => {
+      if (!loading) {
+        loading = loadFromCloud(userId)
+          .then((ok) => {
+            lastLoadOk = ok
+            migrateSessionsStrictV1()
+            setPlayer(loadPlayer())
+            setAuthState('ready')
+          })
+          .finally(() => { loading = null })
+      }
+      return loading
+    }
+
     supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
-        if (!session) {
-          setAuthState('unauthenticated')
-          return
-        }
-        await loadFromCloud(session.user.id)
-        migrateSessionsStrictV1()
-        setPlayer(loadPlayer())
-        setAuthState('ready')
+      .then(({ data: { session }, error }) => {
+        if (session) return syncWithCloud(session.user.id)
+        if (canStayOffline(error, hasLocalProfile())) return
+        setAuthState('unauthenticated')
       })
       .catch((err) => {
         console.error('[kwest] getSession failed', err)
-        setAuthState('unauthenticated')
+        if (!hasLocalProfile()) setAuthState('unauthenticated')
       })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Différé (setTimeout) : le SDK attend la fin de ce callback, et la doc
+    // Supabase déconseille d'y appeler le client en attendant sa réponse.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        await loadFromCloud(session.user.id)
-        migrateSessionsStrictV1()
-        setPlayer(loadPlayer())
-        setAuthState('ready')
+        setTimeout(() => syncWithCloud(session.user.id), 0)
+      }
+      // Jeton renouvelé au retour du réseau après un démarrage hors ligne
+      if (event === 'TOKEN_REFRESHED' && session && !lastLoadOk) {
+        setTimeout(() => syncWithCloud(session.user.id), 0)
       }
       if (event === 'SIGNED_OUT') {
         setPlayer(null)
