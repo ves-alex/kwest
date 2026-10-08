@@ -2,6 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { X, Play, Pause, SkipForward, Plus, Minus } from 'lucide-react'
 import { REST_DURATION_KEY } from '../../storage/keys'
+import { loadRestTimer, saveRestTimer, clearRestTimer } from '../../storage/restTimer'
+import {
+  createRestTimer,
+  remainingSeconds,
+  startRestTimer,
+  pauseRestTimer,
+  finishRestTimer,
+  adjustRestTimer,
+} from '../../domain/restTimer'
 import { unlockAudio, playHammerStrike } from '../../lib/sound'
 
 const PRESETS = [
@@ -44,17 +53,18 @@ export default function RestTimer({ isOpen, onClose, autoStart = false }) {
 }
 
 function RestTimerInner({ onClose, autoStart }) {
-  const [duration, setDuration] = useState(loadLastDuration)
-  const [remaining, setRemaining] = useState(() => loadLastDuration())
-  // Validation d'une série → pastille qui compte directement (autoStart).
-  // Bouton manuel → timer prêt, à démarrer depuis le panneau.
-  const [running, setRunning] = useState(autoStart)
+  // Minuteur déjà en cours (écran Séance quitté puis retrouvé, app relancée) :
+  // on le reprend. Sinon : validation d'une série → pastille qui compte
+  // directement (autoStart) ; bouton manuel → timer prêt, à démarrer.
+  const [timer, setTimer] = useState(
+    () => loadRestTimer() ?? createRestTimer(loadLastDuration(), { start: autoStart }),
+  )
+  const [now, setNow] = useState(() => Date.now())
   const [flashing, setFlashing] = useState(false)
   const [customInput, setCustomInput] = useState('')
   const [autoCloseIn, setAutoCloseIn] = useState(null)
   const [expanded, setExpanded] = useState(false) // panneau de réglage ouvert ?
 
-  const intervalRef = useRef(null)
   const autoCloseRef = useRef(null)
   const constraintsRef = useRef(null)
   const onCloseRef = useRef(onClose)
@@ -85,56 +95,70 @@ function RestTimerInner({ onClose, autoStart }) {
   }, [])
 
   // Au montage (= à l'ouverture) : le tap d'ouverture vient de débloquer l'audio.
-  // Au démontage (= à la fermeture) : plus aucun interval ne doit survivre.
+  // Au démontage : plus aucun interval ne doit survivre.
   useEffect(() => {
     unlockAudio()
-    return () => {
-      clearInterval(intervalRef.current)
-      clearInterval(autoCloseRef.current)
-    }
+    return () => clearInterval(autoCloseRef.current)
   }, [])
 
-  // Countdown
-  useEffect(() => {
-    if (!running) {
-      clearInterval(intervalRef.current)
-      return
+  // Fin du repos. Fini à l'instant : coup d'enclume. Fini pendant que la page
+  // était gelée (écran verrouillé) ou l'écran Séance quitté : pas de son à
+  // retardement, la pastille affiche juste « Repos fini ».
+  const finish = useCallback((lateMs) => {
+    setTimer(finishRestTimer)
+    setExpanded(false)
+    if (lateMs < 2000) {
+      navigator.vibrate?.([300, 100, 300]) // Android uniquement
+      playHammerStrike() // coup d'enclume — signal fiable sur iPhone
+      setFlashing(true)
+      setTimeout(() => setFlashing(false), 1200)
     }
-    intervalRef.current = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(intervalRef.current)
-          setRunning(false)
-          setFlashing(true)
-          setExpanded(false)
-          navigator.vibrate?.([300, 100, 300]) // Android uniquement
-          playHammerStrike() // coup d'enclume — signal fiable sur iPhone
-          setTimeout(() => setFlashing(false), 1200)
-          startAutoClose()
-          return 0
-        }
-        return r - 1
-      })
-    }, 1000)
-    return () => clearInterval(intervalRef.current)
-  }, [running, startAutoClose])
+    startAutoClose()
+  }, [startAutoClose])
+
+  // Compte à rebours : recalculé sur l'heure de fin à chaque tic et au retour
+  // au premier plan (iOS gèle les timers quand l'écran est verrouillé).
+  useEffect(() => {
+    const { endsAt } = timer
+    if (endsAt === null) return
+    let finished = false
+    const tick = () => {
+      if (finished) return
+      const t = Date.now()
+      setNow(t)
+      if (t >= endsAt) {
+        finished = true
+        finish(t - endsAt)
+      }
+    }
+    const id = setInterval(tick, 1000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [timer, finish])
+
+  // Sauvegarde locale : le minuteur survit à l'écran Séance quitté et à l'app
+  // relancée. Un repos fini n'a rien à reprendre.
+  useEffect(() => {
+    if (timer.endsAt === null && timer.pausedRemaining === 0) clearRestTimer()
+    else saveRestTimer(timer)
+  }, [timer])
 
   const selectPreset = (seconds) => {
-    setDuration(seconds)
-    setRemaining(seconds)
-    setRunning(false)
+    setTimer(createRestTimer(seconds))
     setCustomInput('')
     clearAutoClose()
     saveLastDuration(seconds)
   }
 
   const adjustTime = (delta) => {
-    setDuration((d) => {
-      const next = Math.max(5, d + delta)
-      saveLastDuration(next)
-      return next
-    })
-    setRemaining((r) => Math.max(5, r + delta))
+    const t = Date.now()
+    const next = adjustRestTimer(timer, delta, t)
+    setNow(t)
+    setTimer(next)
+    saveLastDuration(next.duration)
   }
 
   const applyCustom = () => {
@@ -144,22 +168,25 @@ function RestTimerInner({ onClose, autoStart }) {
 
   const toggleRunning = () => {
     unlockAudio()
-    setRunning((r) => {
-      const next = !r
-      if (next) setExpanded(false) // on démarre → replie en pastille pour dégager l'écran
-      return next
-    })
+    const t = Date.now()
+    setNow(t)
+    if (running) {
+      setTimer(pauseRestTimer(timer, t))
+    } else {
+      setTimer(startRestTimer(timer, t))
+      setExpanded(false) // on démarre → replie en pastille pour dégager l'écran
+    }
   }
 
   const handleSkip = () => {
-    clearInterval(intervalRef.current)
-    setRunning(false)
     clearAutoClose()
+    clearRestTimer()
     onClose()
   }
 
   const handleClose = () => {
     clearAutoClose()
+    clearRestTimer()
     onClose()
   }
 
@@ -169,6 +196,9 @@ function RestTimerInner({ onClose, autoStart }) {
     setExpanded(true)
   }
 
+  const { duration } = timer
+  const remaining = remainingSeconds(timer, now)
+  const running = timer.endsAt !== null && remaining > 0
   const progress = duration > 0 ? remaining / duration : 0
   const isDone = remaining === 0
 
