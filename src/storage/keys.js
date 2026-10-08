@@ -5,3 +5,5 @@ export const RECENTS_KEY       = 'kwest:recent-exercises'
 export const REST_DURATION_KEY = 'kwest:rest-duration'
 export const REST_TIMER_KEY    = 'kwest:rest-timer'      // minuteur de repos en cours
 export const DELETED_KEY       = 'kwest:deleted-sessions' // tombstones : suppressions cloud à rejouer
+export const PENDING_KEY       = 'kwest:pending'          // envois pas encore confirmés par le cloud
+export const OWNER_KEY         = 'kwest:owner'            // compte auquel appartiennent les données locales
