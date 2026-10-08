@@ -87,12 +87,15 @@ export function computeLevel(xp) {
   }
 }
 
-// Runes et XP pour une séance sans exercices (timer only) — 3 runes/min, 2 xp/min
+// Runes et XP pour une séance sans exercices (timer only) — 3 runes/min, 2 xp/min,
+// comptées sur 2 h au plus : sans ce plafond, une séance libre oubliée ouverte
+// (ou une durée corrigée à 600 min) rapportait des milliers de runes.
+const MAX_TIMER_MINUTES = 120
 export function computeTimerRunes(minutes) {
-  return Math.max(1, Math.floor(minutes * 3))
+  return Math.max(1, Math.floor(Math.min(minutes, MAX_TIMER_MINUTES) * 3))
 }
 export function computeTimerXp(minutes) {
-  return Math.max(1, Math.floor(minutes * 2))
+  return Math.max(1, Math.floor(Math.min(minutes, MAX_TIMER_MINUTES) * 2))
 }
 
 export const RUNE_SYMBOL = "◈"

@@ -124,6 +124,14 @@ describe('computeTimerRunes / computeTimerXp', () => {
     expect(computeTimerRunes(0.1)).toBe(1)
     expect(computeTimerXp(0.1)).toBe(1)
   })
+
+  it('comptées sur 2 h au plus (séance oubliée ouverte, durée corrigée à 600 min)', () => {
+    expect(computeTimerRunes(120)).toBe(360)
+    expect(computeTimerXp(120)).toBe(240)
+    expect(computeTimerRunes(600)).toBe(360)
+    expect(computeTimerXp(600)).toBe(240)
+    expect(computeTimerRunes(24 * 60)).toBe(360)
+  })
 })
 
 describe('recomputeTotalsFromSessions', () => {
@@ -137,6 +145,11 @@ describe('recomputeTotalsFromSessions', () => {
     const longue = session([], { endedAt: '2026-07-01T10:10:00' }) // 10 min
     expect(recomputeTotalsFromSessions([courte])).toEqual({ runes: 0, xp: 0 })
     expect(recomputeTotalsFromSessions([longue])).toEqual({ runes: 30, xp: 20 })
+  })
+
+  it('timer-only : une séance de 10 h rapporte autant qu\'une de 2 h', () => {
+    const dixHeures = session([], { endedAt: '2026-07-01T20:00:00' })
+    expect(recomputeTotalsFromSessions([dixHeures])).toEqual({ runes: 360, xp: 240 })
   })
 
   it('somme les séances normales', () => {
