@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, LogOut, Trash2 } from 'lucide-react'
 import { loadPlayer, setGender, setWeeklyGoal } from '../storage/player'
 import { supabase } from '../lib/supabase'
-import { deleteAccount } from '../lib/sync'
+import { deleteAccount, hasPendingSync, resyncAll } from '../lib/sync'
+import { loadActiveSession } from '../storage/sessions'
+import { loadRoutines } from '../storage/routines'
 import ConfirmModal from '../components/ui/ConfirmModal'
 
 const GENDERS = [
@@ -14,21 +16,57 @@ const GENDERS = [
 
 const APP_VERSION = '0.1.0'
 
+// Ce que la déconnexion effacerait de ce téléphone sans qu'il soit au cloud
+function unsavedOnDevice() {
+  const items = []
+  if (hasPendingSync()) items.push('des modifications pas encore envoyées')
+  if (loadActiveSession()) items.push('ta séance en cours')
+  const n = loadRoutines().length
+  if (n > 0) items.push(n > 1 ? `tes ${n} routines` : 'ta routine')
+  return items
+}
+
+function joinFr(items) {
+  return items.length > 1 ? `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}` : items[0]
+}
+
 export default function Settings() {
   const [player, setPlayer] = useState(loadPlayer)
   const [authUser, setAuthUser] = useState(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [logoutRisks, setLogoutRisks] = useState([])
+  const [logoutError, setLogoutError] = useState(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null))
   }, [])
 
+  // Avant de se déconnecter : on tente d'envoyer ce qui attend, et la fenêtre
+  // se met à jour au fil de la synchro (avertissement tant qu'il reste un risque)
+  const openLogout = () => {
+    setLogoutError(null)
+    setLogoutRisks(unsavedOnDevice())
+    setConfirmLogout(true)
+    resyncAll()
+  }
+  useEffect(() => {
+    if (!confirmLogout) return
+    const refresh = () => setLogoutRisks(unsavedOnDevice())
+    window.addEventListener('kwest:sync-change', refresh)
+    return () => window.removeEventListener('kwest:sync-change', refresh)
+  }, [confirmLogout])
+
   const handleLogout = async () => {
     setConfirmLogout(false)
-    const { error } = await supabase.auth.signOut()
-    if (!error) localStorage.clear()
+    // Ce téléphone seulement : les autres appareils restent connectés
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    if (error) {
+      setLogoutError('Déconnexion impossible sans réseau. Réessaie une fois connecté.')
+      return
+    }
+    localStorage.clear()
   }
 
   const handleDelete = async () => {
@@ -146,7 +184,7 @@ export default function Settings() {
           <div className="mt-4 flex flex-col gap-2">
             <button
               type="button"
-              onClick={() => setConfirmLogout(true)}
+              onClick={openLogout}
               className="inline-flex items-center justify-center gap-2 rounded-md border border-forge-light bg-transparent px-4 py-2.5 text-[11px] uppercase tracking-[0.25em] text-ash transition-colors hover:border-ember hover:text-ember"
             >
               <LogOut size={12} />
@@ -160,6 +198,9 @@ export default function Settings() {
               <Trash2 size={12} />
               Supprimer mon compte
             </button>
+            {logoutError && (
+              <p role="alert" className="text-center text-xs text-ember">{logoutError}</p>
+            )}
           </div>
         </div>
 
@@ -176,9 +217,14 @@ export default function Settings() {
       <ConfirmModal
         isOpen={confirmLogout}
         title="Se déconnecter ?"
-        message="Tu pourras te reconnecter avec le même compte Google. Ta progression est sauvegardée dans le cloud."
-        confirmLabel="Se déconnecter"
+        message={
+          logoutRisks.length === 0
+            ? 'Tu pourras te reconnecter avec le même compte Google. Ta progression est sauvegardée dans le cloud.'
+            : `Pas encore sauvegardé dans le cloud, et effacé de ce téléphone si tu te déconnectes : ${joinFr(logoutRisks)}.`
+        }
+        confirmLabel={logoutRisks.length === 0 ? 'Se déconnecter' : 'Se déconnecter quand même'}
         cancelLabel="Annuler"
+        danger={logoutRisks.length > 0}
         onConfirm={handleLogout}
         onCancel={() => setConfirmLogout(false)}
       />
