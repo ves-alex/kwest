@@ -1,5 +1,5 @@
-// Règle unique « une série compte-t-elle ? », partagée par l'économie, le coach
-// et les records personnels.
+// Règle unique « une série compte-t-elle ? », partagée par l'économie et les
+// records personnels.
 //
 // Un set compte s'il est explicitement validé (true) OU s'il vient d'une ancienne
 // session sans le champ (undefined). Seul `validated: false` (nouveau + jamais
